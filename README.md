@@ -23,8 +23,11 @@ GameHub is a unified game launcher for Linux designed to bring your Steam, Heroi
 ## Getting Started
 
 1. Clone or download the repository.
-2. Install dependencies (standard GTK4 python bindings).
-3. Run the application:
+2. Run the modern graphical installer. It will handle system dependencies and register the application in your desktop menu:
+   ```bash
+   python3 install.py
+   ```
+3. Once installed, you can launch GameHub from your application menu. Alternatively, you can run it directly:
    ```bash
    python3 src/main.py
    ```
