@@ -51,7 +51,7 @@ class ProtonRunner:
         sorted_names = sorted(versions.keys(), reverse=True)
         return versions[sorted_names[0]]
 
-    def launch_game(self, game_path, steam_id=None, args=None, custom_proton_path=None):
+    def launch_game(self, game_path, steam_id=None, args=None, custom_proton_path=None, onlinefix_enabled=False):
         proton_path = custom_proton_path or self._get_proton_path()
         if not proton_path:
             raise Exception("No Proton-GE versions found. Please install one in Settings.")
@@ -64,6 +64,15 @@ class ProtonRunner:
 
         env["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = self.steam_compat_path
         env["STEAM_COMPAT_DATA_PATH"] = prefix_path
+
+        if onlinefix_enabled:
+            # Common DLL overrides for OnlineFix/Steamworks Fix
+            overrides = "OnlineFix64=n;SteamOverlay64=n;winmm=n,b;dnet=n;steam_api64=n;winhttp=n,b;version=n,b"
+            if "WINEDLLOVERRIDES" in env:
+                env["WINEDLLOVERRIDES"] = f"{env['WINEDLLOVERRIDES']};{overrides}"
+            else:
+                env["WINEDLLOVERRIDES"] = overrides
+            print(f"OnlineFix enabled. Applying DLL overrides: {overrides}")
         
         cmd = [proton_path, "run", game_path]
         if args:

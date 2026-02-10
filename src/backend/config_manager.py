@@ -24,7 +24,7 @@ class ConfigManager:
                 return []
         return []
 
-    def save_game(self, name, exe_path, runner_type='proton', proton_version=None, use_global_args=True, arguments=None, artwork=None):
+    def save_game(self, name, exe_path, runner_type='proton', proton_version=None, use_global_args=True, arguments=None, artwork=None, onlinefix_enabled=False):
         game_id = str(int(time.time()))
         game = {
             'id': game_id,
@@ -36,6 +36,7 @@ class ConfigManager:
             'use_global_args': use_global_args,
             'arguments': arguments,
             'artwork': artwork,
+            'onlinefix_enabled': onlinefix_enabled,
             'playtime': 0  # Total seconds played
         }
         self.games.append(game)
@@ -51,7 +52,7 @@ class ConfigManager:
         with open(self.config_file, 'w') as f:
             json.dump(self.games, f, indent=4)
 
-    def update_game(self, game_id, name=None, path=None, runner_type=None, proton_version=None, use_global_args=None, arguments=None, artwork=None):
+    def update_game(self, game_id, name=None, path=None, runner_type=None, proton_version=None, use_global_args=None, arguments=None, artwork=None, onlinefix_enabled=None):
         for game in self.games:
             if game['id'] == game_id:
                 if name is not None: game['name'] = name
@@ -61,6 +62,7 @@ class ConfigManager:
                 if use_global_args is not None: game['use_global_args'] = use_global_args
                 if arguments is not None: game['arguments'] = arguments
                 if artwork is not None: game['artwork'] = artwork
+                if onlinefix_enabled is not None: game['onlinefix_enabled'] = onlinefix_enabled
                 break
         with open(self.config_file, 'w') as f:
             json.dump(self.games, f, indent=4)

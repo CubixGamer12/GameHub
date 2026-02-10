@@ -12,8 +12,8 @@ import shutil
 class GameHubWindow(Adw.ApplicationWindow):
     __gsignals__ = {
         'refresh-games': (GObject.SignalFlags.RUN_FIRST, None, ()),
-        'add-manual-game': (GObject.SignalFlags.RUN_FIRST, None, (str, str, str, str, bool, str, object)), # name, path, runner, version, use_global_args, args, artwork_dict
-        'update-manual-game': (GObject.SignalFlags.RUN_FIRST, None, (str, str, str, str, str, bool, str, object)), # id, name, path, runner, version, use_global_args, args, artwork_dict
+        'add-manual-game': (GObject.SignalFlags.RUN_FIRST, None, (str, str, str, str, bool, str, object, bool)), # name, path, runner, version, use_global_args, args, artwork_dict, onlinefix_enabled
+        'update-manual-game': (GObject.SignalFlags.RUN_FIRST, None, (str, str, str, str, str, bool, str, object, bool)), # id, name, path, runner, version, use_global_args, args, artwork_dict, onlinefix_enabled
         'game-launched': (GObject.SignalFlags.RUN_FIRST, None, (object,)),
         'open-settings': (GObject.SignalFlags.RUN_FIRST, None, ())
     }
@@ -115,16 +115,16 @@ class GameHubWindow(Adw.ApplicationWindow):
         dialog.connect("save-game", self.on_add_game_dialog_finished)
         dialog.present()
 
-    def on_add_game_dialog_finished(self, dialog, name, path, runner, version, use_global, args, art_dict):
-        self.emit("add-manual-game", name, path, runner, version, use_global, args, art_dict)
+    def on_add_game_dialog_finished(self, dialog, name, path, runner, version, use_global, args, art_dict, onlinefix_enabled):
+        self.emit("add-manual-game", name, path, runner, version, use_global, args, art_dict, onlinefix_enabled)
 
     def _show_edit_dialog(self, game):
         dialog = AddGameDialog(self, self.session_manager.runner, game=game)
-        dialog.connect("save-game", lambda d, n, p, r, v, ug, a, art: self.on_edit_dialog_finished(d, game['id'], n, p, r, v, ug, a, art))
+        dialog.connect("save-game", lambda d, n, p, r, v, ug, a, art, of: self.on_edit_dialog_finished(d, game['id'], n, p, r, v, ug, a, art, of))
         dialog.present()
 
-    def on_edit_dialog_finished(self, dialog, game_id, name, path, runner, version, use_global, args, art_dict):
-        self.emit("update-manual-game", game_id, name, path, runner, version, use_global, args, art_dict)
+    def on_edit_dialog_finished(self, dialog, game_id, name, path, runner, version, use_global, args, art_dict, onlinefix_enabled):
+        self.emit("update-manual-game", game_id, name, path, runner, version, use_global, args, art_dict, onlinefix_enabled)
 
     def on_game_launched_sub(self, page, game, is_stop_request):
         if is_stop_request:

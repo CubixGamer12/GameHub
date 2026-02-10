@@ -80,9 +80,9 @@ class GameHubApplication(Adw.Application):
             
         self.win.update_game_list(steam_games, manual_games, heroic_games)
 
-    def add_game(self, win, name, path, runner, version, use_global, args, art_dict):
+    def add_game(self, win, name, path, runner, version, use_global, args, art_dict, onlinefix_enabled):
         # Initial save to get an ID for artwork naming
-        game = self.config.save_game(name, path, runner_type=runner, proton_version=version, use_global_args=use_global, arguments=args)
+        game = self.config.save_game(name, path, runner_type=runner, proton_version=version, use_global_args=use_global, arguments=args, onlinefix_enabled=onlinefix_enabled)
         game_id = game['id']
         
         artwork_path = None
@@ -96,7 +96,7 @@ class GameHubApplication(Adw.Application):
             
         self.refresh_games(None)
 
-    def update_manual_game(self, win, game_id, name, path, runner, version, use_global, args, art_dict):
+    def update_manual_game(self, win, game_id, name, path, runner, version, use_global, args, art_dict, onlinefix_enabled):
         artwork_path = None
         if art_dict['type'] == 'file':
             artwork_path = self.art_manager.cache_local_image(art_dict['value'], game_id)
@@ -110,7 +110,8 @@ class GameHubApplication(Adw.Application):
                                 proton_version=version,
                                 use_global_args=use_global,
                                 arguments=args, 
-                                artwork=artwork_path)
+                                artwork=artwork_path,
+                                onlinefix_enabled=onlinefix_enabled)
         self.refresh_games(None)
 
     def launch_game(self, win, game):

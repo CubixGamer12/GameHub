@@ -47,7 +47,8 @@ class SessionManager(GObject.Object):
                         versions = self.runner.get_all_versions()
                         custom_path = versions.get(proton_version)
                     
-                    process = self.runner.launch_game(game['path'], game['id'], args=args, custom_proton_path=custom_path)
+                    onlinefix = game.get('onlinefix_enabled', False)
+                    process = self.runner.launch_game(game['path'], game['id'], args=args, custom_proton_path=custom_path, onlinefix_enabled=onlinefix)
                 
                 if process:
                     start_time = self.time.time()

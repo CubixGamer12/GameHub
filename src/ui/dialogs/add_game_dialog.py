@@ -6,7 +6,7 @@ import os
 
 class AddGameDialog(Adw.Window):
     __gsignals__ = {
-        'save-game': (GObject.SignalFlags.RUN_FIRST, None, (str, str, str, str, bool, str, object)), # name, path, runner, version, use_global_args, args, artwork_dict
+        'save-game': (GObject.SignalFlags.RUN_FIRST, None, (str, str, str, str, bool, str, object, bool)), # name, path, runner, version, use_global_args, args, artwork_dict, onlinefix_enabled
     }
 
     def __init__(self, parent_window, runner, game=None):
@@ -84,6 +84,13 @@ class AddGameDialog(Adw.Window):
                 self.runner_row.set_selected(0)
         
         group_config.add(self.runner_row)
+
+        # OnlineFix Support
+        self.onlinefix_row = Adw.SwitchRow(title="OnlineFix Support")
+        self.onlinefix_row.set_subtitle("Enable DLL overrides for online fixes (Steamworks Fix, etc.)")
+        onlinefix_enabled = game.get('onlinefix_enabled', False) if game else False
+        self.onlinefix_row.set_active(onlinefix_enabled)
+        group_config.add(self.onlinefix_row)
 
         # Launch Arguments Group
         group_args = Adw.PreferencesGroup(title="Launch Arguments")
@@ -240,5 +247,7 @@ class AddGameDialog(Adw.Window):
         elif art_method == "none":
             self.artwork_data = {"type": "none", "value": None}
             
-        self.emit("save-game", name, self.exe_path, runner, version, use_global_args, arguments, self.artwork_data)
+        onlinefix_enabled = self.onlinefix_row.get_active()
+            
+        self.emit("save-game", name, self.exe_path, runner, version, use_global_args, arguments, self.artwork_data, onlinefix_enabled)
         self.close()
