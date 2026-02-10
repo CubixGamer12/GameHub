@@ -96,13 +96,9 @@ class ProtonRunner:
         return subprocess.Popen(cmd, start_new_session=True)
 
     def launch_steam_game(self, appid):
-        # Steam games are better launched via steam uri, 
-        # but the request asked for proton-ge handling.
-        # However, steam usually manages its own proton.
-        # For simplicity and following user request "using proton-ge", 
-        # we'll use steam's protocol if it's a steam game, 
-        # or find the exe and run via our ge if manual.
-        cmd = ["steam", f"steam://rungameid/{appid}"]
+        # Use xdg-open to handle steam:// protocol. 
+        # This works correctly for both native and flatpak steam installations.
+        cmd = ["xdg-open", f"steam://rungameid/{appid}"]
         subprocess.Popen(cmd)
 
 if __name__ == "__main__":

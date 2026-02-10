@@ -3,12 +3,19 @@ import re
 
 class SteamScanner:
     def __init__(self):
-        self.steam_path = os.path.expanduser("~/.steam/steam")
-        self.libraries = [os.path.join(self.steam_path, "steamapps")]
-        self._find_extra_libraries()
+        self.steam_paths = [
+            os.path.expanduser("~/.steam/steam"),
+            os.path.expanduser("~/.var/app/com.valvesoftware.Steam/.steam/steam")
+        ]
+        self.libraries = []
+        for path in self.steam_paths:
+            apps_path = os.path.join(path, "steamapps")
+            if os.path.exists(apps_path):
+                self.libraries.append(apps_path)
+                self._find_extra_libraries(path)
 
-    def _find_extra_libraries(self):
-        library_vdf = os.path.join(self.steam_path, "steamapps", "libraryfolders.vdf")
+    def _find_extra_libraries(self, steam_path):
+        library_vdf = os.path.join(steam_path, "steamapps", "libraryfolders.vdf")
         if not os.path.exists(library_vdf):
             return
 

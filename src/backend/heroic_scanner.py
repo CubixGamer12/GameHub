@@ -3,8 +3,17 @@ import json
 
 class HeroicScanner:
     def __init__(self):
-        self.heroic_config_path = os.path.expanduser("~/.config/heroic")
-        self.store_cache_path = os.path.join(self.heroic_config_path, "store_cache")
+        self.heroic_config_paths = [
+            os.path.expanduser("~/.config/heroic"),
+            os.path.expanduser("~/.var/app/com.heroicgameslauncher.hgl/config/heroic")
+        ]
+
+    def _get_active_config_path(self, subpath):
+        for path in self.heroic_config_paths:
+            full_path = os.path.join(path, subpath)
+            if os.path.exists(full_path):
+                return full_path
+        return None
 
     def scan_games(self):
         games = []
@@ -15,9 +24,9 @@ class HeroicScanner:
 
     def _scan_legendary(self):
         # Epic Games (via Legendary)
-        installed_path = os.path.join(self.heroic_config_path, "legendaryConfig/legendary/installed.json")
+        installed_path = self._get_active_config_path("legendaryConfig/legendary/installed.json")
         games = []
-        if os.path.exists(installed_path):
+        if installed_path:
             try:
                 with open(installed_path, 'r') as f:
                     data = json.load(f)
@@ -40,9 +49,9 @@ class HeroicScanner:
 
     def _scan_gog(self):
         # GOG Games
-        installed_path = os.path.join(self.heroic_config_path, "gog_store/installed.json")
+        installed_path = self._get_active_config_path("gog_store/installed.json")
         games = []
-        if os.path.exists(installed_path):
+        if installed_path:
             try:
                 with open(installed_path, 'r') as f:
                     data = json.load(f)

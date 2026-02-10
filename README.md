@@ -1,6 +1,6 @@
 # GameHub
 
-GameHub is a unified game launcher for Linux designed to bring your Steam, Heroic, and manual Windows games into one GTK-powered interface.
+GameHub is a unified game launcher for Linux designed to bring your Steam, Heroic, and Windows games into one GTK-powered interface.
 
 ![GameHub Main Screen](main.jpg)
 
