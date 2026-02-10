@@ -13,9 +13,10 @@ class SessionManager(GObject.Object):
         'playtime-updated': (GObject.SignalFlags.RUN_FIRST, None, (str, str, int)), # game_type, game_id, seconds
     }
 
-    def __init__(self, runner):
+    def __init__(self, runner, settings_manager=None):
         super().__init__()
         self.runner = runner
+        self.settings = settings_manager
         self.running_games = {} # game_id -> (game, process, start_time)
         self.time = time
         
@@ -30,7 +31,12 @@ class SessionManager(GObject.Object):
         try:
             if game['type'] == 'manual':
                 runner_type = game.get('runner_type', 'proton')
-                args = game.get('arguments')
+                
+                # Resolve arguments
+                if game.get('use_global_args', True) and self.settings:
+                    args = self.settings.get("global_arguments", "")
+                else:
+                    args = game.get('arguments', "")
                 if runner_type == 'native':
                     process = self.runner.launch_native(game['path'], args=args)
                 else:

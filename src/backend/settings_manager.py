@@ -6,7 +6,7 @@ class SettingsManager:
         self.config_dir = os.path.expanduser("~/.config/gamehub")
         self.settings_file = os.path.join(self.config_dir, "configuration.conf")
         os.makedirs(self.config_dir, exist_ok=True)
-        self.config = configparser.ConfigParser()
+        self.config = configparser.ConfigParser(interpolation=None)
         self._load_settings()
 
     def _load_settings(self):

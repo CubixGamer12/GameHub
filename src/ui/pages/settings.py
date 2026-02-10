@@ -15,6 +15,18 @@ class SettingsPage(Adw.PreferencesPage):
         self.set_title("Settings")
         self.set_icon_name("preferences-system-symbolic")
 
+        # Group: General Settings
+        group_general = Adw.PreferencesGroup()
+        group_general.set_title("General")
+        self.add(group_general)
+
+        # Row: Global Launch Arguments
+        self.args_row = Adw.EntryRow()
+        self.args_row.set_title("Global Launch Arguments")
+        self.args_row.set_text(self.settings_manager.get("global_arguments", ""))
+        self.args_row.connect("notify::text", self.on_args_changed)
+        group_general.add(self.args_row)
+
         # Group: Proton Management
         group = Adw.PreferencesGroup()
         group.set_title("Proton Management")
@@ -79,6 +91,9 @@ class SettingsPage(Adw.PreferencesPage):
                 folder_name = versions[selected_idx - 1]
                 path = os.path.join(self.proton_manager.INSTALL_DIR, folder_name)
                 self.settings_manager.set("custom_proton_path", path)
+
+    def on_args_changed(self, entry, param):
+        self.settings_manager.set("global_arguments", entry.get_text())
 
     def on_manage_clicked(self, btn):
         dialog = ProtonDownloadDialog(self.get_root(), self.proton_manager, on_installed_callback=self._refresh_versions)

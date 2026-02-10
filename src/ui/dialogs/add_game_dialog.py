@@ -6,7 +6,7 @@ import os
 
 class AddGameDialog(Adw.Window):
     __gsignals__ = {
-        'save-game': (GObject.SignalFlags.RUN_FIRST, None, (str, str, str, str, object)), # name, path, runner, args, artwork_dict
+        'save-game': (GObject.SignalFlags.RUN_FIRST, None, (str, str, str, str, bool, str, object)), # name, path, runner, version, use_global_args, args, artwork_dict
     }
 
     def __init__(self, parent_window, runner, game=None):
@@ -84,12 +84,25 @@ class AddGameDialog(Adw.Window):
                 self.runner_row.set_selected(0)
         
         group_config.add(self.runner_row)
+
+        # Launch Arguments Group
+        group_args = Adw.PreferencesGroup(title="Launch Arguments")
+        page.add(group_args)
         
-        # Launch Arguments
-        self.args_row = Adw.EntryRow(title="Launch Arguments")
+        # Use Global Arguments Toggle
+        self.global_args_row = Adw.SwitchRow(title="Use Global Settings")
+        self.global_args_row.set_subtitle("Apply arguments from global application settings")
+        use_global = game.get('use_global_args', True) if game else True
+        self.global_args_row.set_active(use_global)
+        self.global_args_row.connect("notify::active", self.on_global_args_toggled)
+        group_args.add(self.global_args_row)
+        
+        # Custom Launch Arguments
+        self.args_row = Adw.EntryRow(title="Custom Arguments")
         if game and game.get('arguments'):
             self.args_row.set_text(game['arguments'])
-        group_config.add(self.args_row)
+        self.args_row.set_visible(not use_global)
+        group_args.add(self.args_row)
         
         # Group 3: Artwork
         group_art = Adw.PreferencesGroup(title="Artwork")
@@ -143,6 +156,9 @@ class AddGameDialog(Adw.Window):
         self.save_btn.set_css_classes(["suggested-action"])
         self.save_btn.connect("clicked", self.on_save_clicked)
         footer_box.append(self.save_btn)
+
+    def on_global_args_toggled(self, row, param):
+        self.args_row.set_visible(not row.get_active())
 
     def on_browse_exe(self, btn):
         dialog = Gtk.FileDialog.new()
@@ -211,6 +227,7 @@ class AddGameDialog(Adw.Window):
             runner = "proton"
             version = self.version_names[selected_idx - 2]
         
+        use_global_args = self.global_args_row.get_active()
         arguments = self.args_row.get_text().strip()
         
         art_method = self.art_stack.get_visible_child_name()
@@ -223,5 +240,5 @@ class AddGameDialog(Adw.Window):
         elif art_method == "none":
             self.artwork_data = {"type": "none", "value": None}
             
-        self.emit("save-game", name, self.exe_path, runner, version, arguments, self.artwork_data)
+        self.emit("save-game", name, self.exe_path, runner, version, use_global_args, arguments, self.artwork_data)
         self.close()
