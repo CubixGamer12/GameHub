@@ -4,37 +4,57 @@ import json
 
 class ProtonRunner:
     def __init__(self, settings_manager=None):
-        self.compat_tools_path = os.path.expanduser("~/.steam/root/compatibilitytools.d")
+        self.steam_tools_path = os.path.expanduser("~/.steam/root/compatibilitytools.d")
+        self.internal_tools_path = os.path.expanduser("~/.local/share/gamehub/proton")
         self.steam_compat_path = os.path.expanduser("~/.steam/steam")
         self.settings = settings_manager
+
+    def get_all_versions(self):
+        """Returns a dict of {version_name: executable_path}"""
+        versions = {}
         
+        # Scan Steam tools
+        if os.path.exists(self.steam_tools_path):
+            for d in os.listdir(self.steam_tools_path):
+                path = os.path.join(self.steam_tools_path, d, "proton")
+                if os.path.exists(path):
+                    versions[d] = path
+                    
+        # Scan Internal tools
+        if os.path.exists(self.internal_tools_path):
+            for d in os.listdir(self.internal_tools_path):
+                path = os.path.join(self.internal_tools_path, d, "proton")
+                if os.path.exists(path):
+                    versions[d] = path
+                    
+        return versions
+
     def _get_proton_path(self):
         # 1. Check settings for custom proton
         if self.settings:
             custom_proton = self.settings.get("custom_proton_path")
             if custom_proton and os.path.exists(custom_proton):
+                # Check if it's already the exe or a folder
+                if os.path.basename(custom_proton) == "proton":
+                    return custom_proton
                 return os.path.join(custom_proton, "proton")
 
-        # 2. Fallback to system Proton-GE
-        return self._find_proton_ge()
+        # 2. Fallback to latest found
+        return self._find_latest_proton()
 
-    def _find_proton_ge(self):
-        if not os.path.exists(self.compat_tools_path):
+    def _find_latest_proton(self):
+        versions = self.get_all_versions()
+        if not versions:
             return None
         
-        # Find the latest Proton-GE
-        tools = [d for d in os.listdir(self.compat_tools_path) if os.path.isdir(os.path.join(self.compat_tools_path, d))]
-        ge_tools = [t for t in tools if "GE-Proton" in t]
-        if not ge_tools:
-            return None
-        
-        ge_tools.sort(reverse=True)
-        return os.path.join(self.compat_tools_path, ge_tools[0], "proton")
+        # Sort by version names (latest first)
+        sorted_names = sorted(versions.keys(), reverse=True)
+        return versions[sorted_names[0]]
 
-    def launch_game(self, game_path, steam_id=None, args=None):
-        proton_path = self._get_proton_path()
+    def launch_game(self, game_path, steam_id=None, args=None, custom_proton_path=None):
+        proton_path = custom_proton_path or self._get_proton_path()
         if not proton_path:
-            raise Exception("Proton-GE not found in settings or ~/.steam/root/compatibilitytools.d/")
+            raise Exception("No Proton-GE versions found. Please install one in Settings.")
 
         env = os.environ.copy()
         

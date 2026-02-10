@@ -24,7 +24,7 @@ class ConfigManager:
                 return []
         return []
 
-    def save_game(self, name, exe_path, runner_type='proton', arguments=None, artwork=None):
+    def save_game(self, name, exe_path, runner_type='proton', proton_version=None, arguments=None, artwork=None):
         game_id = str(int(time.time()))
         game = {
             'id': game_id,
@@ -32,6 +32,7 @@ class ConfigManager:
             'path': exe_path,
             'type': 'manual',
             'runner_type': runner_type,
+            'proton_version': proton_version,
             'arguments': arguments,
             'artwork': artwork,
             'playtime': 0  # Total seconds played
@@ -49,12 +50,13 @@ class ConfigManager:
         with open(self.config_file, 'w') as f:
             json.dump(self.games, f, indent=4)
 
-    def update_game(self, game_id, name=None, path=None, runner_type=None, arguments=None, artwork=None):
+    def update_game(self, game_id, name=None, path=None, runner_type=None, proton_version=None, arguments=None, artwork=None):
         for game in self.games:
             if game['id'] == game_id:
                 if name is not None: game['name'] = name
                 if path is not None: game['path'] = path
                 if runner_type is not None: game['runner_type'] = runner_type
+                if proton_version is not None: game['proton_version'] = proton_version
                 if arguments is not None: game['arguments'] = arguments
                 if artwork is not None: game['artwork'] = artwork
                 break

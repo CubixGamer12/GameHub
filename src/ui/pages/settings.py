@@ -4,6 +4,7 @@ gi.require_version('Adw', '1')
 from gi.repository import Gtk, Adw, GObject, GLib
 import threading
 import os
+from ui.dialogs.proton_download_dialog import ProtonDownloadDialog
 
 class SettingsPage(Adw.PreferencesPage):
     def __init__(self, proton_manager, settings_manager):
@@ -27,33 +28,16 @@ class SettingsPage(Adw.PreferencesPage):
         # Connection moved to _refresh_versions to avoid overwriting config during init
         group.add(self.version_row)
 
-        # Row 2: Download Latest
-        self.download_row = Adw.ActionRow()
-        self.download_row.set_title("Download Latest GE-Proton")
-        self.download_row.set_subtitle("Check GitHub for updates")
-        group.add(self.download_row)
+        # Row 2: Manage Versions
+        self.manage_row = Adw.ActionRow()
+        self.manage_row.set_title("Download/Manage GE-Proton")
+        self.manage_row.set_subtitle("Install specific versions from GitHub")
+        group.add(self.manage_row)
 
-        self.download_btn = Gtk.Button(label="Check")
-        self.download_btn.set_valign(Gtk.Align.CENTER)
-        self.download_btn.connect("clicked", self.on_action_clicked)
-        self.download_row.add_suffix(self.download_btn)
-
-        # Progress Bar
-        self.progress_bar = Gtk.ProgressBar()
-        self.progress_bar.set_hexpand(True)
-        
-        self.progress_box = Gtk.Box()
-        self.progress_box.set_visible(False)
-        self.progress_box.set_margin_top(12)
-        self.progress_box.set_margin_bottom(12)
-        self.progress_box.set_margin_start(50)
-        self.progress_box.set_margin_end(50)
-        self.progress_box.append(self.progress_bar)
-        
-        group.add(self.progress_box)
-
-        self.check_state = "check" # check, download, done
-        self.pending_release = None
+        self.manage_btn = Gtk.Button(label="Open Manager")
+        self.manage_btn.set_valign(Gtk.Align.CENTER)
+        self.manage_btn.connect("clicked", self.on_manage_clicked)
+        self.manage_row.add_suffix(self.manage_btn)
 
         self._refresh_versions()
 
@@ -75,6 +59,9 @@ class SettingsPage(Adw.PreferencesPage):
         else:
             self.version_row.set_selected(0)
             
+        # Reconnect to avoid double signals during refresh
+        try: self.version_row.disconnect_by_func(self.on_version_changed)
+        except: pass
         self.version_row.connect("notify::selected", self.on_version_changed)
 
     def on_version_changed(self, row, param):
@@ -93,65 +80,6 @@ class SettingsPage(Adw.PreferencesPage):
                 path = os.path.join(self.proton_manager.INSTALL_DIR, folder_name)
                 self.settings_manager.set("custom_proton_path", path)
 
-    def on_action_clicked(self, btn):
-        if self.check_state == "check":
-            self.download_btn.set_sensitive(False)
-            self.download_row.set_subtitle("CheckingGitHub API...")
-            threading.Thread(target=self._check_update_thread).start()
-        elif self.check_state == "download":
-            if self.pending_release:
-                tag, url = self.pending_release
-                self.start_download(tag, url)
-
-    def _check_update_thread(self):
-        tag, url = self.proton_manager.check_latest_release()
-        GLib.idle_add(self._on_check_complete, tag, url)
-
-    def _on_check_complete(self, tag, url):
-        self.download_btn.set_sensitive(True)
-        if tag and url:
-            versions = self.proton_manager.get_installed_versions()
-            if tag in versions:
-                self.download_btn.set_label("Re-install")
-                self.download_row.set_subtitle(f"Latest version {tag} is already installed")
-                self.download_btn.set_sensitive(True)
-                self.pending_release = (tag, url)
-                self.check_state = "download"
-            else:
-                self.download_btn.set_label("Download")
-                self.download_row.set_subtitle(f"New version availble: {tag}")
-                self.pending_release = (tag, url)
-                self.check_state = "download"
-        else:
-            self.download_btn.set_label("Retry")
-            self.download_row.set_subtitle("Error checking for updates.")
-            self.check_state = "check"
-
-    def start_download(self, tag, url):
-        self.download_btn.set_sensitive(False)
-        self.progress_box.set_visible(True)
-        
-        self.proton_manager.download_and_install(
-            url, tag, 
-            progress_callback=self.update_progress,
-            completion_callback=self.on_download_complete
-        )
-
-    def update_progress(self, fraction):
-        GLib.idle_add(self.progress_bar.set_fraction, fraction)
-
-    def on_download_complete(self, success, message):
-        GLib.idle_add(self._download_finished_ui, success, message)
-
-    def _download_finished_ui(self, success, message):
-        self.progress_box.set_visible(False)
-        self.download_btn.set_sensitive(True)
-        if success:
-            self.download_btn.set_label("Installed")
-            self.download_row.set_subtitle(message)
-            self.check_state = "done"
-            self._refresh_versions()
-        else:
-            self.download_btn.set_label("Retry Download")
-            self.download_row.set_subtitle(f"Failed: {message}")
-            # Keep state as download to allow retry
+    def on_manage_clicked(self, btn):
+        dialog = ProtonDownloadDialog(self.get_root(), self.proton_manager, on_installed_callback=self._refresh_versions)
+        dialog.present()

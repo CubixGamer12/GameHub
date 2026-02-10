@@ -9,9 +9,10 @@ class AddGameDialog(Adw.Window):
         'save-game': (GObject.SignalFlags.RUN_FIRST, None, (str, str, str, str, object)), # name, path, runner, args, artwork_dict
     }
 
-    def __init__(self, parent_window, game=None):
+    def __init__(self, parent_window, runner, game=None):
         super().__init__(transient_for=parent_window, modal=True)
         self.game = game
+        self.runner = runner
         self.set_title("Add Manual Game" if not game else f"Configure {game['name']}")
         self.set_default_size(450, -1)
         
@@ -59,12 +60,29 @@ class AddGameDialog(Adw.Window):
         group_config = Adw.PreferencesGroup(title="Runner Settings")
         page.add(group_config)
         
-        # Runner Type
+        # Proton Versions dropdown
         self.runner_row = Adw.ComboRow(title="Runner")
-        self.runner_model = Gtk.StringList.new(["GE-Proton (Standard)", "Native (No Prefix)"])
+        self.proton_versions = self.runner.get_all_versions()
+        self.version_names = sorted(self.proton_versions.keys(), reverse=True)
+        
+        # Options: 0=Default, 1=Native, 2+=Specific Proton
+        display_names = ["Global Default (from Settings)", "Native (Linux/No Proton)"] + self.version_names
+        self.runner_model = Gtk.StringList.new(display_names)
         self.runner_row.set_model(self.runner_model)
+        
         if game:
-            self.runner_row.set_selected(1 if game.get('runner_type') == 'native' else 0)
+            runner_type = game.get('runner_type', 'proton')
+            if runner_type == 'native':
+                self.runner_row.set_selected(1)
+            elif runner_type == 'proton' and game.get('proton_version'):
+                version = game.get('proton_version')
+                if version in self.version_names:
+                    self.runner_row.set_selected(self.version_names.index(version) + 2)
+                else:
+                    self.runner_row.set_selected(0)
+            else:
+                self.runner_row.set_selected(0)
+        
         group_config.add(self.runner_row)
         
         # Launch Arguments
@@ -179,7 +197,20 @@ class AddGameDialog(Adw.Window):
         if not name or not self.exe_path:
             return
             
-        runner = "proton" if self.runner_row.get_selected() == 0 else "native"
+        selected_idx = self.runner_row.get_selected()
+        runner = "proton"
+        version = None
+        
+        if selected_idx == 0: # Default
+            runner = "proton"
+            version = None
+        elif selected_idx == 1: # Native
+            runner = "native"
+            version = None
+        else: # Specific Proton
+            runner = "proton"
+            version = self.version_names[selected_idx - 2]
+        
         arguments = self.args_row.get_text().strip()
         
         art_method = self.art_stack.get_visible_child_name()
@@ -192,5 +223,5 @@ class AddGameDialog(Adw.Window):
         elif art_method == "none":
             self.artwork_data = {"type": "none", "value": None}
             
-        self.emit("save-game", name, self.exe_path, runner, arguments, self.artwork_data)
+        self.emit("save-game", name, self.exe_path, runner, version, arguments, self.artwork_data)
         self.close()

@@ -7,10 +7,32 @@ import json
 
 class ProtonManager:
     GITHUB_API_URL = "https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest"
+    ALL_RELEASES_URL = "https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases"
     INSTALL_DIR = os.path.expanduser("~/.local/share/gamehub/proton")
 
     def __init__(self):
         os.makedirs(self.INSTALL_DIR, exist_ok=True)
+
+    def get_available_releases(self):
+        """Fetches a list of all available releases. Returns list of (tag_name, download_url)."""
+        try:
+            resp = requests.get(self.ALL_RELEASES_URL, timeout=5)
+            if resp.status_code == 200:
+                releases = []
+                for release in resp.json():
+                    tag_name = release.get("tag_name")
+                    assets = release.get("assets", [])
+                    download_url = None
+                    for asset in assets:
+                        if asset["name"].endswith(".tar.gz"):
+                            download_url = asset["browser_download_url"]
+                            break
+                    if tag_name and download_url:
+                        releases.append((tag_name, download_url))
+                return releases
+        except Exception as e:
+            print(f"Error fetching releases: {e}")
+        return []
 
     def get_installed_versions(self):
         """Returns a list of installed Proton-GE versions folder names."""
