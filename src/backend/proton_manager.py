@@ -6,17 +6,21 @@ import shutil
 import json
 
 class ProtonManager:
-    GITHUB_API_URL = "https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest"
-    ALL_RELEASES_URL = "https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases"
+    SOURCES = {
+        "ge": "GloriousEggroll/proton-ge-custom",
+        "cachyos": "CachyOS/proton-cachyos"
+    }
     INSTALL_DIR = os.path.expanduser("~/.local/share/gamehub/proton")
 
     def __init__(self):
         os.makedirs(self.INSTALL_DIR, exist_ok=True)
 
-    def get_available_releases(self):
-        """Fetches a list of all available releases. Returns list of (tag_name, download_url)."""
+    def get_available_releases(self, source="ge"):
+        """Fetches a list of all available releases for a specific source."""
+        repo = self.SOURCES.get(source, self.SOURCES["ge"])
+        url = f"https://api.github.com/repos/{repo}/releases"
         try:
-            resp = requests.get(self.ALL_RELEASES_URL, timeout=5)
+            resp = requests.get(url, timeout=5)
             if resp.status_code == 200:
                 releases = []
                 for release in resp.json():
@@ -24,27 +28,29 @@ class ProtonManager:
                     assets = release.get("assets", [])
                     download_url = None
                     for asset in assets:
-                        if asset["name"].endswith(".tar.gz"):
+                        if asset["name"].endswith(".tar.gz") or asset["name"].endswith(".tar.xz"):
                             download_url = asset["browser_download_url"]
                             break
                     if tag_name and download_url:
                         releases.append((tag_name, download_url))
                 return releases
         except Exception as e:
-            print(f"Error fetching releases: {e}")
+            print(f"Error fetching {source} releases: {e}")
         return []
 
     def get_installed_versions(self):
-        """Returns a list of installed Proton-GE versions folder names."""
+        """Returns a list of installed Proton versions folder names."""
         if not os.path.exists(self.INSTALL_DIR):
             return []
         return [d for d in os.listdir(self.INSTALL_DIR) 
-                if os.path.isdir(os.path.join(self.INSTALL_DIR, d)) and "GE-Proton" in d]
+                if os.path.isdir(os.path.join(self.INSTALL_DIR, d)) and ("Proton" in d or "proton" in d.lower())]
 
-    def check_latest_release(self):
-        """Fetches the latest release tag name and download URL."""
+    def check_latest_release(self, source="ge"):
+        """Fetches the latest release tag name and download URL for a source."""
+        repo = self.SOURCES.get(source, self.SOURCES["ge"])
+        url = f"https://api.github.com/repos/{repo}/releases/latest"
         try:
-            resp = requests.get(self.GITHUB_API_URL, timeout=5)
+            resp = requests.get(url, timeout=5)
             if resp.status_code == 200:
                 data = resp.json()
                 tag_name = data.get("tag_name")
@@ -58,7 +64,7 @@ class ProtonManager:
                 
                 return tag_name, download_url
         except Exception as e:
-            print(f"Error checking release: {e}")
+            print(f"Error checking {source} release: {e}")
         return None, None
 
     def download_and_install(self, download_url, version_tag, progress_callback=None, completion_callback=None):
@@ -69,7 +75,8 @@ class ProtonManager:
         """
         def _download():
             try:
-                temp_file = os.path.join(self.INSTALL_DIR, f"{version_tag}.tar.gz")
+                extension = ".tar.gz" if download_url.endswith(".tar.gz") else ".tar.xz"
+                temp_file = os.path.join(self.INSTALL_DIR, f"{version_tag}{extension}")
                 
                 # Download
                 print(f"Downloading {version_tag} from {download_url}")
@@ -95,7 +102,8 @@ class ProtonManager:
 
                 # Extract
                 print(f"Extracting {temp_file}...")
-                with tarfile.open(temp_file, "r:gz") as tar:
+                mode = "r:gz" if temp_file.endswith(".tar.gz") else "r:xz"
+                with tarfile.open(temp_file, mode) as tar:
                     tar.extractall(path=self.INSTALL_DIR)
                 
                 # Cleanup
