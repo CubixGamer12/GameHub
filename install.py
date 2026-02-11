@@ -95,7 +95,19 @@ class GameHubInstaller(Adw.Application):
         )
         start_btn.set_margin_top(24)
         start_btn.connect("clicked", lambda x: self.stack.set_visible_child_name("install"))
-        welcome_page.set_child(start_btn)
+        
+        uninstall_btn = Gtk.Button(
+            label="Uninstall",
+            halign=Gtk.Align.CENTER,
+            css_classes=["destructive-action", "pill"]
+        )
+        uninstall_btn.set_margin_top(12)
+        uninstall_btn.connect("clicked", self.on_start_uninstall)
+        
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        box.append(start_btn)
+        box.append(uninstall_btn)
+        welcome_page.set_child(box)
         self.stack.add_titled(welcome_page, "welcome", "Welcome")
 
         # --- Install Page ---
@@ -142,6 +154,38 @@ class GameHubInstaller(Adw.Application):
         launch_btn.connect("clicked", self.on_launch)
         self.success_page.set_child(launch_btn)
         self.stack.add_titled(self.success_page, "success", "Success")
+
+        # --- Uninstall Page ---
+        self.uninstall_page = Adw.StatusPage(
+            title="Uninstalling GameHub",
+            description="Removing application files...",
+            icon_name="user-trash-symbolic"
+        )
+        self.uninstall_progress_bar = Gtk.ProgressBar()
+        self.uninstall_progress_bar.set_size_request(300, -1)
+        self.uninstall_status_label = Gtk.Label(label="Removing files...")
+        
+        uninstall_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        uninstall_box.set_halign(Gtk.Align.CENTER)
+        uninstall_box.append(self.uninstall_progress_bar)
+        uninstall_box.append(self.uninstall_status_label)
+        self.uninstall_page.set_child(uninstall_box)
+        self.stack.add_titled(self.uninstall_page, "uninstall", "Uninstall")
+
+        # --- Uninstall Success Page ---
+        self.uninstall_success_page = Adw.StatusPage(
+            title="Uninstalled",
+            description="GameHub has been removed from your system.",
+            icon_name="emblem-ok-symbolic"
+        )
+        quit_btn = Gtk.Button(
+            label="Quit",
+            halign=Gtk.Align.CENTER,
+            css_classes=["pill"]
+        )
+        quit_btn.connect("clicked", lambda x: self.quit())
+        self.uninstall_success_page.set_child(quit_btn)
+        self.stack.add_titled(self.uninstall_success_page, "uninstalled", "Uninstalled")
 
         self.win.present()
 
@@ -197,7 +241,7 @@ class GameHubInstaller(Adw.Application):
 
             # 5. Install Icon
             self.update_status("Installing icon...", 0.8)
-            icon_src = self.project_dir / "main.jpg"
+            icon_src = self.project_dir / "main.png"
             if icon_src.exists():
                 # We rename it to .png for compatibility, even if it's a jpg (most DEs handle it)
                 # Or better, if we had a proper png.
@@ -224,6 +268,14 @@ export GDK_BACKEND=x11
 
             # 7. Create Desktop Entry
             self.create_desktop_file()
+
+            # 8. Post-Install Hooks (Refresh Cache)
+            self.update_status("Refreshing system caches...", 0.95)
+            try:
+                subprocess.run(["update-desktop-database", str(Path.home() / ".local/share/applications")], check=False)
+                subprocess.run(["gtk-update-icon-cache", "-f", "-t", str(Path.home() / ".local/share/icons/hicolor")], check=False)
+            except Exception:
+                pass
 
             self.update_status("Installation Complete!", 1.0)
             GLib.idle_add(lambda: self.stack.set_visible_child_name("success"))
@@ -257,6 +309,68 @@ StartupNotify=true
     def on_launch(self, btn):
         subprocess.Popen([str(self.bin_dir / "gamehub")])
         self.quit()
+
+    def on_start_uninstall(self, btn):
+        dialog = Adw.MessageDialog(
+            transient_for=self.win,
+            heading="Uninstall GameHub?",
+            body="This will remove the application and all its data from your system. Are you sure?",
+        )
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("uninstall", "Uninstall")
+        dialog.set_response_appearance("uninstall", Adw.ResponseAppearance.DESTRUCTIVE)
+        
+        def response_cb(dialog, response):
+            if response == "uninstall":
+                self.stack.set_visible_child_name("uninstall")
+                threading.Thread(target=self.run_uninstall_process, daemon=True).start()
+        
+        dialog.connect("response", response_cb)
+        dialog.present()
+
+    def update_uninstall_status(self, text, fraction):
+        GLib.idle_add(self.uninstall_status_label.set_text, text)
+        GLib.idle_add(self.uninstall_progress_bar.set_fraction, fraction)
+
+    def run_uninstall_process(self):
+        try:
+            # 1. Remove Desktop Entry
+            self.update_uninstall_status("Removing desktop entry...", 0.2)
+            desktop_file = Path.home() / ".local/share/applications" / DESKTOP_FILENAME
+            if desktop_file.exists():
+                desktop_file.unlink()
+
+            # 2. Remove Icon
+            self.update_uninstall_status("Removing icon...", 0.4)
+            icon_file = self.icon_dir / "com.github.gamehub.png"
+            if icon_file.exists():
+                icon_file.unlink()
+
+            # 3. Remove Launch Script
+            self.update_uninstall_status("Removing launcher script...", 0.6)
+            launch_script = self.bin_dir / "gamehub"
+            if launch_script.exists():
+                launch_script.unlink()
+
+            # 4. Remove Installation Directory
+            self.update_uninstall_status("Removing application files...", 0.8)
+            if self.install_dir.exists():
+                shutil.rmtree(self.install_dir)
+
+            # 5. Refresh Caches
+            self.update_uninstall_status("Refreshing system caches...", 0.9)
+            try:
+                subprocess.run(["update-desktop-database", str(Path.home() / ".local/share/applications")], check=False)
+                subprocess.run(["gtk-update-icon-cache", "-f", "-t", str(Path.home() / ".local/share/icons/hicolor")], check=False)
+            except Exception:
+                pass
+
+            self.update_uninstall_status("Uninstallation Complete", 1.0)
+            GLib.idle_add(lambda: self.stack.set_visible_child_name("uninstalled"))
+
+        except Exception as e:
+            self.update_uninstall_status(f"Error: {e}", 0.0)
+            print(f"Uninstall failed: {e}")
 
 if __name__ == "__main__":
     app = GameHubInstaller()
