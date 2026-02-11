@@ -64,7 +64,7 @@ class GameHubWindow(Adw.ApplicationWindow):
         self.uninstalled_toggle.set_active(show_uninstalled)
         
         if show_uninstalled:
-            self.uninstalled_toggle.set_icon_name("view-visible-symbolic")
+            self.uninstalled_toggle.set_icon_name("view-reveal-symbolic")
         else:
             self.uninstalled_toggle.set_icon_name("view-conceal-symbolic")
             
@@ -130,7 +130,7 @@ class GameHubWindow(Adw.ApplicationWindow):
     def on_uninstalled_toggled(self, btn):
         active = btn.get_active()
         if active:
-            btn.set_icon_name("view-visible-symbolic")
+            btn.set_icon_name("eye-open-negative-filled-symbolic")
         else:
             btn.set_icon_name("view-conceal-symbolic")
         
