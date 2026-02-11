@@ -57,6 +57,9 @@ class GameHubWindow(Adw.ApplicationWindow):
         self.refresh_btn.connect("clicked", self.on_refresh_clicked)
         self.header_bar.pack_end(self.refresh_btn)
 
+        # Show Uninstalled Toggle
+        self.uninstalled_toggle = Gtk.ToggleButton()
+        self.uninstalled_toggle.set_icon_name("view-conceal-symbolic")
         # Settings Button
         self.settings_btn = Gtk.Button.new_from_icon_name("preferences-system-symbolic")
         self.settings_btn.set_tooltip_text("Settings")
@@ -296,7 +299,7 @@ class GameHubWindow(Adw.ApplicationWindow):
                 new_path = app.art_manager.cache_local_image(value, game['id'])
                 if new_path:
                     if game['type'] == 'heroic':
-                        app.config.update_heroic_artwork(game['id'], new_path)
+                        app.config.update_heroic_metadata(game['id'], artwork_path=new_path)
                     else:
                         app.config.update_game_artwork(game['id'], new_path)
             elif type == "steam":
@@ -304,11 +307,11 @@ class GameHubWindow(Adw.ApplicationWindow):
                 if game['type'] == 'heroic':
                     # For Heroic, just store the Steam CDN URL directly
                     steam_url = app.art_manager.get_steam_artwork_url(value)
-                    app.config.update_heroic_artwork(game['id'], steam_url)
+                    app.config.update_heroic_metadata(game['id'], artwork_path=steam_url, steam_id=value)
                 else:
                     new_path = app.art_manager.download_steam_artwork(value, game['id'])
                     if new_path:
-                        app.config.update_game_artwork(game['id'], new_path)
+                        app.config.update_game(game['id'], artwork=new_path, steam_id=value)
             
             self.emit("refresh-games")
 
@@ -322,6 +325,10 @@ class GameHubWindow(Adw.ApplicationWindow):
             border-radius: 12px;
             margin: 0;
             padding: 0;
+            min-width: 140px;
+            min-height: 210px;
+            max-width: 140px;
+            max-height: 210px;
             transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
         .game-card:hover {
@@ -375,6 +382,20 @@ class GameHubWindow(Adw.ApplicationWindow):
             font-weight: bold;
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
+        .protondb-badge {
+            color: white;
+            border-radius: 6px;
+            padding: 2px 8px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
+        .protondb-badge.platinum { background-color: #b162ff; }
+        .protondb-badge.gold { background-color: #cf9f0d; }
+        .protondb-badge.silver { background-color: #a3a3a3; }
+        .protondb-badge.bronze { background-color: #cd7f32; }
+        .protondb-badge.borked { background-color: #ff2222; }
         """
         provider = Gtk.CssProvider()
         provider.load_from_data(css)

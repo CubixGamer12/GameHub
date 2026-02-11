@@ -12,9 +12,15 @@ class GameCard(Gtk.FlowBoxChild):
         super().__init__()
         self.game = game
         self.set_css_classes(["game-card"])
-        self.set_size_request(140, 200)
+        
+        # Enforce fixed size and prevent stretching
+        self.set_size_request(140, 210)
+        self.set_halign(Gtk.Align.START)
+        self.set_valign(Gtk.Align.START)
+        self.set_hexpand(False)
+        self.set_vexpand(False)
         self.set_focusable(True)
-
+ 
         # Main Overlay
         self.overlay = Gtk.Overlay()
         self.set_child(self.overlay)
@@ -22,7 +28,7 @@ class GameCard(Gtk.FlowBoxChild):
         # Background Image (Artwork)
         self.picture = Gtk.Picture()
         self.picture.set_content_fit(Gtk.ContentFit.COVER)
-        self.picture.set_can_shrink(False)
+        self.picture.set_can_shrink(True) # Allow it to fit inside the fixed size
         self.overlay.set_child(self.picture)
 
         # Load Artwork
@@ -84,10 +90,34 @@ class GameCard(Gtk.FlowBoxChild):
         self.status_revealer.set_transition_type(Gtk.RevealerTransitionType.CROSSFADE)
         self.status_revealer.set_child(self.status_box)
         self.status_revealer.set_reveal_child(False)
-        self.status_revealer.set_halign(Gtk.Align.END)
         self.status_revealer.set_valign(Gtk.Align.START)
         self.status_revealer.set_can_target(False)
         self.overlay.add_overlay(self.status_revealer)
+
+        # ProtonDB Badge (Top Left)
+        self.protondb_box = Gtk.Box()
+        self.protondb_box.set_halign(Gtk.Align.START)
+        self.protondb_box.set_valign(Gtk.Align.START)
+        self.protondb_box.set_margin_top(8)
+        self.protondb_box.set_margin_start(8)
+        
+        self.protondb_label = Gtk.Label()
+        self.protondb_label.set_css_classes(["protondb-badge"])
+        self.protondb_box.append(self.protondb_label)
+        
+        self.protondb_revealer = Gtk.Revealer()
+        self.protondb_revealer.set_transition_type(Gtk.RevealerTransitionType.CROSSFADE)
+        self.protondb_revealer.set_child(self.protondb_box)
+        self.protondb_revealer.set_reveal_child(False)
+        self.protondb_revealer.set_halign(Gtk.Align.START)
+        self.protondb_revealer.set_valign(Gtk.Align.START)
+        self.protondb_revealer.set_can_target(False)
+        self.overlay.add_overlay(self.protondb_revealer)
+
+        # Set initial ProtonDB tier if present
+        tier = game.get('protondb_tier')
+        if tier:
+            self.set_protondb_tier(tier)
 
         # Controllers
         # Hover controller
@@ -213,6 +243,25 @@ class GameCard(Gtk.FlowBoxChild):
             self.emit('play-clicked', self.game, True) # True = stop request
         else:
             self.emit('play-clicked', self.game, False) # False = start request
+
+    def set_title(self, name):
+        self.game['name'] = name
+        self.title_label.set_text(name)
+
+    def set_protondb_tier(self, tier):
+        """Update the ProtonDB tier badge"""
+        if not tier or tier == "unknown":
+            self.protondb_revealer.set_reveal_child(False)
+            return
+
+        self.protondb_label.set_text(tier.capitalize())
+        
+        # Remove old specific classes
+        for cls in ["platinum", "gold", "silver", "bronze", "borked"]:
+            self.protondb_label.remove_css_class(cls)
+            
+        self.protondb_label.add_css_class(tier.lower())
+        self.protondb_revealer.set_reveal_child(True)
 
     def _update_playtime_label(self, seconds):
         """Format and update playtime label"""

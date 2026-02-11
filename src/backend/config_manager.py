@@ -8,7 +8,11 @@ class ConfigManager:
         self.config_file = os.path.join(self.config_dir, "games.json")
         self.heroic_artwork_file = os.path.join(self.config_dir, "heroic_artwork.json")
         os.makedirs(self.config_dir, exist_ok=True)
-        self.games = self._load_config()
+        
+        # self.data will hold {'games': [], 'hidden_games': []}
+        self.data = self._load_config()
+        self.games = self.data['games'] # Reference for backward compatibility in some places
+        
         self.heroic_artwork = self._load_heroic_artwork()
         self.steam_playtime_file = os.path.join(self.config_dir, "steam_playtime.json")
         self.heroic_playtime_file = os.path.join(self.config_dir, "heroic_playtime.json")
@@ -19,10 +23,18 @@ class ConfigManager:
         if os.path.exists(self.config_file):
             try:
                 with open(self.config_file, 'r') as f:
-                    return json.load(f)
+                    content = json.load(f)
+                    if isinstance(content, list):
+                        # Old format, migrate to new dict format
+                        return {'games': content, 'hidden_games': []}
+                    return content
             except:
-                return []
-        return []
+                return {'games': [], 'hidden_games': []}
+        return {'games': [], 'hidden_games': []}
+
+    def _save_config(self):
+        with open(self.config_file, 'w') as f:
+            json.dump(self.data, f, indent=4)
 
     def save_game(self, name, exe_path, runner_type='proton', proton_version=None, use_global_args=True, arguments=None, artwork=None, onlinefix_enabled=False):
         game_id = str(int(time.time()))
@@ -40,19 +52,18 @@ class ConfigManager:
             'playtime': 0  # Total seconds played
         }
         self.games.append(game)
-        with open(self.config_file, 'w') as f:
-            json.dump(self.games, f, indent=4)
+        self._save_config()
         return game
 
     def get_manual_games(self):
         return self.games
 
     def delete_game(self, game_id):
-        self.games = [g for g in self.games if g['id'] != game_id]
-        with open(self.config_file, 'w') as f:
-            json.dump(self.games, f, indent=4)
+        self.data['games'] = [g for g in self.data['games'] if g['id'] != game_id]
+        self.games = self.data['games']
+        self._save_config()
 
-    def update_game(self, game_id, name=None, path=None, runner_type=None, proton_version=None, use_global_args=None, arguments=None, artwork=None, onlinefix_enabled=None):
+    def update_game(self, game_id, name=None, path=None, runner_type=None, proton_version=None, use_global_args=None, arguments=None, artwork=None, onlinefix_enabled=None, steam_id=None):
         for game in self.games:
             if game['id'] == game_id:
                 if name is not None: game['name'] = name
@@ -63,17 +74,16 @@ class ConfigManager:
                 if arguments is not None: game['arguments'] = arguments
                 if artwork is not None: game['artwork'] = artwork
                 if onlinefix_enabled is not None: game['onlinefix_enabled'] = onlinefix_enabled
+                if steam_id is not None: game['steam_id'] = steam_id
                 break
-        with open(self.config_file, 'w') as f:
-            json.dump(self.games, f, indent=4)
+        self._save_config()
 
     def update_game_artwork(self, game_id, artwork_path):
         for game in self.games:
             if game['id'] == game_id:
                 game['artwork'] = artwork_path
                 break
-        with open(self.config_file, 'w') as f:
-            json.dump(self.games, f, indent=4)
+        self._save_config()
 
     def _load_heroic_artwork(self):
         if os.path.exists(self.heroic_artwork_file):
@@ -94,10 +104,28 @@ class ConfigManager:
         return {}
 
     def get_heroic_artwork(self, game_id):
-        return self.heroic_artwork.get(game_id)
+        metadata = self.heroic_artwork.get(game_id)
+        if isinstance(metadata, dict):
+            return metadata.get('artwork')
+        return metadata # Backward compatibility for old simple string paths
 
-    def update_heroic_artwork(self, game_id, artwork_path):
-        self.heroic_artwork[game_id] = artwork_path
+    def get_heroic_steam_id(self, game_id):
+        metadata = self.heroic_artwork.get(game_id)
+        if isinstance(metadata, dict):
+            return metadata.get('steam_id')
+        return None
+
+    def update_heroic_metadata(self, game_id, artwork_path=None, steam_id=None):
+        if game_id not in self.heroic_artwork or not isinstance(self.heroic_artwork[game_id], dict):
+            # Migrate to dict if it was a string or missing
+            current_art = self.heroic_artwork.get(game_id)
+            self.heroic_artwork[game_id] = {'artwork': current_art, 'steam_id': None}
+            
+        if artwork_path:
+            self.heroic_artwork[game_id]['artwork'] = artwork_path
+        if steam_id:
+            self.heroic_artwork[game_id]['steam_id'] = steam_id
+            
         with open(self.heroic_artwork_file, 'w') as f:
             json.dump(self.heroic_artwork, f, indent=4)
 
@@ -121,8 +149,7 @@ class ConfigManager:
                     current = game.get('playtime', 0)
                     game['playtime'] = current + seconds
                     break
-            with open(self.config_file, 'w') as f:
-                json.dump(self.games, f, indent=4)
+            self._save_config()
         elif game_type == 'steam':
             current = self.steam_playtime.get(game_id, 0)
             self.steam_playtime[game_id] = current + seconds

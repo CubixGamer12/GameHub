@@ -35,6 +35,7 @@ class SteamScanner:
         # Unwanted items keywords
         unwanted = ["Steam Linux Runtime", "Proton", "Steamworks Common Redistributables", "SteamVR"]
 
+        # 1. Scan installed games (ACF files)
         for lib in self.libraries:
             if not os.path.exists(lib):
                 continue
@@ -54,8 +55,10 @@ class SteamScanner:
                         if game_info.get('install_dir'):
                             game_info['path'] = os.path.join(lib, "common", game_info['install_dir'])
                         
+                        game_info['is_installed'] = True
                         games.append(game_info)
                         seen_ids.add(game_info['id'])
+        
         return games
 
     def _parse_acf(self, path):

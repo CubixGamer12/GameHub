@@ -61,3 +61,13 @@ class LibraryPage(Adw.Bin):
                 card.set_status(is_running)
                 break
             child = child.get_next_sibling()
+
+    def update_protondb_status(self, game_id, tier):
+        child = self.flowbox.get_first_child()
+        while child:
+            card = child
+            if str(card.game['id']) == str(game_id):
+                card.set_protondb_tier(tier)
+                break
+            child = child.get_next_sibling()
+        return False

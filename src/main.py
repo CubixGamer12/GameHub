@@ -1,4 +1,6 @@
 import sys
+import os
+import requests
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
@@ -12,6 +14,9 @@ from backend.proton_manager import ProtonManager
 from backend.settings_manager import SettingsManager
 from backend.session_manager import SessionManager
 from backend.heroic_scanner import HeroicScanner
+from backend.protondb_manager import ProtonDBManager
+import threading
+import json
 from ui.window import GameHubWindow
 from ui.pages.settings import SettingsPage
 
@@ -26,6 +31,7 @@ class GameHubApplication(Adw.Application):
         self.config = ConfigManager()
         self.art_manager = ArtworkManager()
         self.proton_manager = ProtonManager()
+        self.protondb = ProtonDBManager()
         self.session_manager = SessionManager(self.runner, self.settings_manager)
 
     def do_activate(self):
@@ -60,25 +66,55 @@ class GameHubApplication(Adw.Application):
         settings_win.present()
 
     def refresh_games(self, win):
+        import threading
+        
         steam_games = self.scanner.scan_games()
         manual_games = self.config.get_manual_games()
         heroic_games = self.heroic_scanner.scan_games()
         
+        for game in steam_games:
+            game['playtime'] = self.config.get_playtime(str(game['id']), 'steam')
+            game['protondb_tier'] = None # Initially None
+            
         for game in manual_games:
             game['artwork'] = self.art_manager.get_artwork_path(game)
             game['playtime'] = self.config.get_playtime(game['id'], 'manual')
-        
-        for game in steam_games:
-            game['playtime'] = self.config.get_playtime(str(game['id']), 'steam')
-
-        # Apply Heroic artwork overrides and playtime
+            game['protondb_tier'] = None
+            
         for game in heroic_games:
             override = self.config.get_heroic_artwork(game['id'])
             if override:
                 game['artwork'] = override
             game['playtime'] = self.config.get_playtime(game['id'], 'heroic')
+            game['steam_id'] = self.config.get_heroic_steam_id(game['id'])
             
         self.win.update_game_list(steam_games, manual_games, heroic_games)
+
+        # Fetch ProtonDB tiers in background
+        def fetch_tiers():
+            # Steam games
+            for game in steam_games:
+                tier = self.protondb.get_tier(str(game['id']))
+                if tier:
+                    gi.repository.GLib.idle_add(self.win.steam_page.update_protondb_status, str(game['id']), tier)
+            
+            # Manual games with Steam ID
+            for game in manual_games:
+                sid = game.get('steam_id')
+                if sid:
+                    tier = self.protondb.get_tier(str(sid))
+                    if tier:
+                        gi.repository.GLib.idle_add(self.win.manual_page.update_protondb_status, str(game['id']), tier)
+
+            # Heroic games with Steam ID
+            for game in heroic_games:
+                sid = game.get('steam_id')
+                if sid:
+                    tier = self.protondb.get_tier(str(sid))
+                    if tier:
+                        gi.repository.GLib.idle_add(self.win.heroic_page.update_protondb_status, str(game['id']), tier)
+
+        threading.Thread(target=fetch_tiers, daemon=True).start()
 
     def add_game(self, win, name, path, runner, version, use_global, args, art_dict, onlinefix_enabled):
         # Initial save to get an ID for artwork naming
