@@ -20,12 +20,64 @@ class SettingsPage(Adw.PreferencesPage):
         group_general.set_title("General")
         self.add(group_general)
 
+        # Row: Enable Steam Web API
+        self.enable_api_row = Adw.SwitchRow()
+        self.enable_api_row.set_title("Enable Steam Web API")
+        self.enable_api_row.set_subtitle("Show uninstalled games from your Steam library")
+        self.enable_api_row.set_active(self.settings_manager.get("enable_steam_api", "False").lower() == "true")
+        self.enable_api_row.connect("notify::active", self.on_enable_api_changed)
+        group_general.add(self.enable_api_row)
+
+        # Row: Hide Borked Games
+        self.hide_borked_row = Adw.SwitchRow()
+        self.hide_borked_row.set_title("Hide Borked Games")
+        self.hide_borked_row.set_subtitle("Don't show games marked as 'Borked' on ProtonDB")
+        self.hide_borked_row.set_active(self.settings_manager.get("hide_borked", "False").lower() == "true")
+        self.hide_borked_row.connect("notify::active", self.on_hide_borked_changed)
+        group_general.add(self.hide_borked_row)
+
         # Row: Global Launch Arguments
         self.args_row = Adw.EntryRow()
         self.args_row.set_title("Global Launch Arguments")
         self.args_row.set_text(self.settings_manager.get("global_arguments", ""))
         self.args_row.connect("notify::text", self.on_args_changed)
         group_general.add(self.args_row)
+
+        # Row: Steam Web API Key
+        self.api_key_row = Adw.EntryRow()
+        self.api_key_row.set_title("Steam Web API Key")
+        self.api_key_row.set_text(self.settings_manager.get("steam_api_key", ""))
+        self.api_key_row.connect("notify::text", self.on_api_key_changed)
+        group_general.add(self.api_key_row)
+        
+        # Link to get key
+        link_row = Adw.ActionRow()
+        link_row.set_title("Get API Key")
+        link_btn = Gtk.LinkButton.new_with_label("https://steamcommunity.com/dev/apikey", "Open Steam Dev Page")
+        link_btn.set_valign(Gtk.Align.CENTER)
+        link_row.add_suffix(link_btn)
+        group_general.add(link_row)
+        
+        # Group: SteamGridDB
+        group_sgdb = Adw.PreferencesGroup()
+        group_sgdb.set_title("SteamGridDB")
+        group_sgdb.set_description("Get high-quality game covers from SteamGridDB.")
+        self.add(group_sgdb)
+        
+        # Row: SteamGridDB API Key
+        self.sgdb_key_row = Adw.EntryRow()
+        self.sgdb_key_row.set_title("SteamGridDB API Key")
+        self.sgdb_key_row.set_text(self.settings_manager.get("sgdb_api_key", ""))
+        self.sgdb_key_row.connect("notify::text", self.on_sgdb_key_changed)
+        group_sgdb.add(self.sgdb_key_row)
+        
+        # Link to get key
+        sgdb_link_row = Adw.ActionRow()
+        sgdb_link_row.set_title("Get API Key")
+        sgdb_link_btn = Gtk.LinkButton.new_with_label("https://www.steamgriddb.com/profile/preferences", "Open SteamGridDB Profile")
+        sgdb_link_btn.set_valign(Gtk.Align.CENTER)
+        sgdb_link_row.add_suffix(sgdb_link_btn)
+        group_sgdb.add(sgdb_link_row)
 
         # Group: Proton Management
         group = Adw.PreferencesGroup()
@@ -94,6 +146,21 @@ class SettingsPage(Adw.PreferencesPage):
 
     def on_args_changed(self, entry, param):
         self.settings_manager.set("global_arguments", entry.get_text())
+
+    def on_args_changed(self, entry, param):
+        self.settings_manager.set("global_arguments", entry.get_text())
+
+    def on_api_key_changed(self, entry, param):
+        self.settings_manager.set("steam_api_key", entry.get_text())
+
+    def on_sgdb_key_changed(self, entry, param):
+        self.settings_manager.set("sgdb_api_key", entry.get_text())
+
+    def on_enable_api_changed(self, row, param):
+        self.settings_manager.set("enable_steam_api", str(row.get_active()))
+
+    def on_hide_borked_changed(self, row, param):
+        self.settings_manager.set("hide_borked", str(row.get_active()))
 
     def on_manage_clicked(self, btn):
         dialog = ProtonDownloadDialog(self.get_root(), self.proton_manager, on_installed_callback=self._refresh_versions)

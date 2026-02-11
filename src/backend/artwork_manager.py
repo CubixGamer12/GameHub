@@ -50,16 +50,69 @@ class ArtworkManager:
         
         return None
 
-    def get_artwork_path(self, game):
+    def get_sgdb_artwork(self, game_id, api_key, platform="steam"):
+        """Fetch artwork (grid) from SteamGridDB API"""
+        if not api_key:
+            return None
+            
+        # For non-steam, game_id might not be appid. 
+        # But for now we support Steam lookups as seen in API v2
+        endpoint = f"https://www.steamgriddb.com/api/v2/grids/{platform}/{game_id}"
+        
+        try:
+            import requests
+            headers = {"Authorization": f"Bearer {api_key}"}
+            # Optional filters: dimensions, styles
+            params = {"styles": "standard,alternate,blurred,white_logo,material,no_logo"}
+            
+            response = requests.get(endpoint, headers=headers, params=params, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('success') and data.get('data'):
+                    # Grids are usually sorted by score/upvotes
+                    # We take the first one that has a valid URL
+                    for grid in data['data']:
+                        url = grid.get('url')
+                        if url:
+                            return url
+            else:
+                print(f"[ArtworkManager] SGDB API error {response.status_code}: {response.text}")
+        except Exception as e:
+            print(f"[ArtworkManager] SGDB Exception: {e}")
+            
+        return None
+
+    def get_artwork_path(self, game, sgdb_key=None):
         # Priority 1: User set artwork (from config)
         if game.get('artwork'):
             return game['artwork']
             
-        # Priority 2: Default logic
+        # Priority 2: SteamWebAPI/SteamGridDB logic
         if game['type'] == 'steam':
+            # Try SGDB if key provided
+            if sgdb_key:
+                sgdb_url = self.get_sgdb_artwork(game['id'], sgdb_key, platform="steam")
+                if sgdb_url:
+                    return sgdb_url
             return self.get_steam_artwork_url(game['id'])
+            
         elif game['type'] == 'manual':
+            # Try SGDB for manual games if we have a steam_id
+            steam_id = game.get('steam_id')
+            if steam_id and sgdb_key:
+                sgdb_url = self.get_sgdb_artwork(steam_id, sgdb_key, platform="steam")
+                if sgdb_url:
+                    return sgdb_url
             return self.extract_exe_icon(game['path'], game['id'])
+            
+        elif game['type'] == 'heroic':
+             # Heroic games usually have a steam_id mapped if we searched for it
+             steam_id = game.get('steam_id')
+             if steam_id and sgdb_key:
+                 sgdb_url = self.get_sgdb_artwork(steam_id, sgdb_key, platform="steam")
+                 if sgdb_url:
+                     return sgdb_url
+        
         return None
 
     def download_steam_artwork(self, app_id, game_id):

@@ -14,6 +14,9 @@ class ConfigManager:
         self.games = self.data['games'] # Reference for backward compatibility in some places
         
         self.heroic_artwork = self._load_heroic_artwork()
+        self.steam_metadata_file = os.path.join(self.config_dir, "steam_metadata.json")
+        self.steam_metadata = self._load_steam_metadata()
+        
         self.steam_playtime_file = os.path.join(self.config_dir, "steam_playtime.json")
         self.heroic_playtime_file = os.path.join(self.config_dir, "heroic_playtime.json")
         self.steam_playtime = self._load_playtime(self.steam_playtime_file)
@@ -129,6 +132,34 @@ class ConfigManager:
             
         with open(self.heroic_artwork_file, 'w') as f:
             json.dump(self.heroic_artwork, f, indent=4)
+
+    def _load_steam_metadata(self):
+        if os.path.exists(self.steam_metadata_file):
+            try:
+                with open(self.steam_metadata_file, 'r') as f:
+                    return json.load(f)
+            except:
+                return {}
+        return {}
+
+    def get_steam_artwork_override(self, game_id):
+        metadata = self.steam_metadata.get(str(game_id))
+        if isinstance(metadata, dict):
+            return metadata.get('artwork')
+        return None
+
+    def update_steam_metadata(self, game_id, artwork_path=None, steam_id=None):
+        game_id = str(game_id)
+        if game_id not in self.steam_metadata:
+            self.steam_metadata[game_id] = {}
+            
+        if artwork_path:
+            self.steam_metadata[game_id]['artwork'] = artwork_path
+        if steam_id:
+            self.steam_metadata[game_id]['steam_id'] = steam_id
+            
+        with open(self.steam_metadata_file, 'w') as f:
+            json.dump(self.steam_metadata, f, indent=4)
 
     def get_playtime(self, game_id, game_type='manual'):
         """Get total playtime in seconds for a game"""

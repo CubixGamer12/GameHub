@@ -63,58 +63,76 @@ class GameHubApplication(Adw.Application):
         page = SettingsPage(self.proton_manager, self.settings_manager)
         settings_win.add(page)
         
+        # When settings window is closed, refresh filters in the main window
+        settings_win.connect("unmap", lambda x: self.win.apply_settings_filters())
+        
         settings_win.present()
 
     def refresh_games(self, win):
-        import threading
-        
-        steam_games = self.scanner.scan_games()
-        manual_games = self.config.get_manual_games()
-        heroic_games = self.heroic_scanner.scan_games()
-        
-        for game in steam_games:
-            game['playtime'] = self.config.get_playtime(str(game['id']), 'steam')
-            game['protondb_tier'] = None # Initially None
+        """Scan games in background to avoid freezing UI using parallel processing"""
+        import concurrent.futures
+
+        def resolve_game_data(game, sgdb_key):
+            # 1. Artwork
+            if game['type'] == 'steam':
+                override = self.config.get_steam_artwork_override(game['id'])
+                game['artwork'] = override if override else self.art_manager.get_artwork_path(game, sgdb_key=sgdb_key)
+                game['playtime'] = self.config.get_playtime(str(game['id']), 'steam')
+            elif game['type'] == 'manual':
+                game['artwork'] = self.art_manager.get_artwork_path(game, sgdb_key=sgdb_key)
+                game['playtime'] = self.config.get_playtime(game['id'], 'manual')
+            elif game['type'] == 'heroic':
+                override = self.config.get_heroic_artwork(game['id'])
+                game['artwork'] = override if override else self.art_manager.get_artwork_path(game, sgdb_key=sgdb_key)
+                game['playtime'] = self.config.get_playtime(game['id'], 'heroic')
+                game['steam_id'] = self.config.get_heroic_steam_id(game['id'])
             
-        for game in manual_games:
-            game['artwork'] = self.art_manager.get_artwork_path(game)
-            game['playtime'] = self.config.get_playtime(game['id'], 'manual')
             game['protondb_tier'] = None
-            
-        for game in heroic_games:
-            override = self.config.get_heroic_artwork(game['id'])
-            if override:
-                game['artwork'] = override
-            game['playtime'] = self.config.get_playtime(game['id'], 'heroic')
-            game['steam_id'] = self.config.get_heroic_steam_id(game['id'])
-            
-        self.win.update_game_list(steam_games, manual_games, heroic_games)
+            return game
 
-        # Fetch ProtonDB tiers in background
-        def fetch_tiers():
-            # Steam games
-            for game in steam_games:
-                tier = self.protondb.get_tier(str(game['id']))
-                if tier:
-                    gi.repository.GLib.idle_add(self.win.steam_page.update_protondb_status, str(game['id']), tier)
-            
-            # Manual games with Steam ID
-            for game in manual_games:
-                sid = game.get('steam_id')
-                if sid:
-                    tier = self.protondb.get_tier(str(sid))
+        def do_scan():
+            try:
+                enable_api = self.settings_manager.get("enable_steam_api", "False").lower() == "true"
+                api_key = self.settings_manager.get("steam_api_key", "") if enable_api else None
+                sgdb_key = self.settings_manager.get("sgdb_api_key", "").strip() or None
+                
+                # Initial scan
+                steam_games = self.scanner.scan_games(api_key=api_key)
+                manual_games = self.config.get_manual_games()
+                heroic_games = self.heroic_scanner.scan_games()
+                
+                all_games = steam_games + manual_games + heroic_games
+                
+                # Parallel Resolution
+                with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                    futures = [executor.submit(resolve_game_data, g, sgdb_key) for g in all_games]
+                    concurrent.futures.wait(futures)
+
+                # Update UI from main thread
+                gi.repository.GLib.idle_add(self.win.update_game_list, steam_games, manual_games, heroic_games)
+                
+                # Parallel ProtonDB Status
+                def fetch_proton_tier(game):
+                    game_id = str(game.get('steam_id') or game['id'])
+                    tier = self.protondb.get_tier(game_id)
                     if tier:
-                        gi.repository.GLib.idle_add(self.win.manual_page.update_protondb_status, str(game['id']), tier)
+                        page = None
+                        if game['type'] == 'steam': page = self.win.steam_page
+                        elif game['type'] == 'manual': page = self.win.manual_page
+                        elif game['type'] == 'heroic': page = self.win.heroic_page
+                        
+                        if page:
+                            gi.repository.GLib.idle_add(page.update_protondb_status, str(game['id']), tier)
 
-            # Heroic games with Steam ID
-            for game in heroic_games:
-                sid = game.get('steam_id')
-                if sid:
-                    tier = self.protondb.get_tier(str(sid))
-                    if tier:
-                        gi.repository.GLib.idle_add(self.win.heroic_page.update_protondb_status, str(game['id']), tier)
+                with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+                    executor.map(fetch_proton_tier, all_games)
+                
+            except Exception as e:
+                print(f"[Main] Refresh error: {e}")
 
-        threading.Thread(target=fetch_tiers, daemon=True).start()
+        import threading
+        thread = threading.Thread(target=do_scan, daemon=True)
+        thread.start()
 
     def add_game(self, win, name, path, runner, version, use_global, args, art_dict, onlinefix_enabled):
         steam_id = art_dict['value'] if art_dict['type'] == 'steam' else None

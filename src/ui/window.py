@@ -59,7 +59,19 @@ class GameHubWindow(Adw.ApplicationWindow):
 
         # Show Uninstalled Toggle
         self.uninstalled_toggle = Gtk.ToggleButton()
-        self.uninstalled_toggle.set_icon_name("view-conceal-symbolic")
+        # Load persisted state
+        show_uninstalled = self.settings_manager.get("show_uninstalled", "False").lower() == "true"
+        self.uninstalled_toggle.set_active(show_uninstalled)
+        
+        if show_uninstalled:
+            self.uninstalled_toggle.set_icon_name("view-visible-symbolic")
+        else:
+            self.uninstalled_toggle.set_icon_name("view-conceal-symbolic")
+            
+        self.uninstalled_toggle.set_tooltip_text("Show Uninstalled Games")
+        self.uninstalled_toggle.connect("toggled", self.on_uninstalled_toggled)
+        self.header_bar.pack_end(self.uninstalled_toggle)
+        
         # Settings Button
         self.settings_btn = Gtk.Button.new_from_icon_name("preferences-system-symbolic")
         self.settings_btn.set_tooltip_text("Settings")
@@ -76,19 +88,28 @@ class GameHubWindow(Adw.ApplicationWindow):
         self.steam_page = LibraryPage()
         self.steam_page.connect('game-launched', self.on_game_launched_sub)
         self.steam_page.connect('menu-action', self.on_menu_action)
-        self.stack.add_titled(self.steam_page, "steam", "Steam")
+        stack_page = self.stack.add_named(self.steam_page, "steam")
+        stack_page.set_title("Steam")
 
         # Manual Page
         self.manual_page = LibraryPage()
         self.manual_page.connect('game-launched', self.on_game_launched_sub)
         self.manual_page.connect('menu-action', self.on_menu_action)
-        self.stack.add_titled(self.manual_page, "manual", "Manual")
+        stack_page = self.stack.add_named(self.manual_page, "manual")
+        stack_page.set_title("Manual")
         
         # Heroic Page
         self.heroic_page = LibraryPage()
         self.heroic_page.connect('game-launched', self.on_game_launched_sub)
         self.heroic_page.connect('menu-action', self.on_menu_action)
-        self.stack.add_titled(self.heroic_page, "heroic", "Heroic")
+        stack_page = self.stack.add_named(self.heroic_page, "heroic")
+        stack_page.set_title("Heroic")
+        
+        # Apply flags to library pages
+        for page in [self.steam_page, self.manual_page, self.heroic_page]:
+            page.set_show_uninstalled(show_uninstalled)
+            hide_borked = self.settings_manager.get("hide_borked", "False").lower() == "true"
+            page.set_hide_borked(hide_borked)
         
         # Settings Page (Not in stack, usually separate window or modal)
         # But AdwPreferencesWindow requires a window. 
@@ -105,6 +126,21 @@ class GameHubWindow(Adw.ApplicationWindow):
         self.steam_page.set_games(steam_games)
         self.manual_page.set_games(manual_games)
         self.heroic_page.set_games(heroic_games)
+
+    def on_uninstalled_toggled(self, btn):
+        active = btn.get_active()
+        if active:
+            btn.set_icon_name("view-visible-symbolic")
+        else:
+            btn.set_icon_name("view-conceal-symbolic")
+        
+        # Save preference
+        self.settings_manager.set("show_uninstalled", str(active))
+        
+        # Update library pages
+        self.steam_page.set_show_uninstalled(active)
+        self.manual_page.set_show_uninstalled(active)
+        self.heroic_page.set_show_uninstalled(active)
 
     def on_refresh_clicked(self, btn):
         self.emit("refresh-games")
@@ -125,6 +161,12 @@ class GameHubWindow(Adw.ApplicationWindow):
         dialog = AddGameDialog(self, self.session_manager.runner, game=game)
         dialog.connect("save-game", lambda d, n, p, r, v, ug, a, art, of: self.on_edit_dialog_finished(d, game['id'], n, p, r, v, ug, a, art, of))
         dialog.present()
+
+    def apply_settings_filters(self):
+        """Apply filters that depend on the SettingsManager"""
+        hide_borked = self.settings_manager.get("hide_borked", "False").lower() == "true"
+        for page in [self.steam_page, self.manual_page, self.heroic_page]:
+            page.set_hide_borked(hide_borked)
 
     def on_edit_dialog_finished(self, dialog, game_id, name, path, runner, version, use_global, args, art_dict, onlinefix_enabled):
         self.emit("update-manual-game", game_id, name, path, runner, version, use_global, args, art_dict, onlinefix_enabled)
@@ -306,6 +348,10 @@ class GameHubWindow(Adw.ApplicationWindow):
                     # For Heroic, just store the Steam CDN URL directly
                     steam_url = app.art_manager.get_steam_artwork_url(value)
                     app.config.update_heroic_metadata(game['id'], artwork_path=steam_url, steam_id=value)
+                elif game['type'] == 'steam':
+                    new_path = app.art_manager.download_steam_artwork(value, game['id'])
+                    if new_path:
+                        app.config.update_steam_metadata(game['id'], artwork_path=new_path, steam_id=value)
                 else:
                     new_path = app.art_manager.download_steam_artwork(value, game['id'])
                     if new_path:
@@ -317,16 +363,28 @@ class GameHubWindow(Adw.ApplicationWindow):
         dialog.present()
 
     def _load_css(self):
-        css = b"""
-        .game-card {
+        css = b"""        .library-header {
+            padding: 20px 20px 0 20px;
+        }
+        .library-search {
             background-color: @card_bg_color;
+            border-radius: 12px;
+            padding: 6px;
+            box-shadow: 0 2px 10px alpha(black, 0.1);
+        }
+        .library-search entry {
+            border: none;
+            background: none;
+            box-shadow: none;
+        }
+
+        .game-card {
+            background-color: transparent;
             border-radius: 12px;
             margin: 0;
             padding: 0;
-            min-width: 140px;
-            min-height: 210px;
-            max-width: 140px;
-            max-height: 210px;
+            min-width: 198px;
+            min-height: 297px;
             transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
         .game-card:hover {
@@ -335,12 +393,14 @@ class GameHubWindow(Adw.ApplicationWindow):
         }
         .game-card picture {
             border-radius: 12px;
+            background-color: @card_bg_color;
         }
         .game-card-overlay {
             background: linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0));
             border-bottom-left-radius: 12px;
             border-bottom-right-radius: 12px;
             padding: 12px;
+            min-width: 180px;
         }
         .game-card-title {
             color: white;
@@ -394,6 +454,33 @@ class GameHubWindow(Adw.ApplicationWindow):
         .protondb-badge.silver { background-color: #a3a3a3; }
         .protondb-badge.bronze { background-color: #cd7f32; }
         .protondb-badge.borked { background-color: #ff2222; }
+        
+        .game-card.uninstalled {
+            opacity: 0.6;
+            filter: grayscale(0.5);
+        }
+        .game-card.uninstalled:hover {
+            opacity: 1.0;
+            filter: none;
+        }
+        gridview child {
+            padding: 10px;
+        }
+        gridview child:selected {
+            background: none;
+            outline: none;
+        }
+        .install-button {
+            background-color: #2a475e; /* Steam blueish-black */
+            color: white;
+            border-radius: 9999px;
+            padding: 16px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+        }
+        .install-button:hover {
+            background-color: @accent_bg_color;
+            transform: scale(1.1);
+        }
         """
         provider = Gtk.CssProvider()
         provider.load_from_data(css)
