@@ -293,15 +293,19 @@ export GDK_BACKEND=x11
         # Exec points to the launcher script in ~/.local/bin/gamehub
         exec_path = self.bin_dir / "gamehub"
         
+        # Use absolute path for icon to ensure it shows up everywhere (file manager, etc)
+        icon_path = self.icon_dir / "com.github.gamehub.png"
+        
         content = f"""[Desktop Entry]
 Name={APP_NAME}
 Comment=Unified game library for Linux
 Exec="{exec_path}"
-Icon={ICON_NAME}
+Icon={icon_path}
 Terminal=false
 Type=Application
 Categories=Game;Utility;
 StartupNotify=true
+StartupWMClass=com.github.gamehub
 """
         desktop_path.write_text(content)
         os.chmod(desktop_path, 0o755)
