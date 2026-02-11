@@ -1,6 +1,6 @@
 # GameHub
 
-GameHub is a unified game launcher for Linux designed to bring your Steam, Heroic, and Windows games into one GTK-powered interface.
+GameHub is a game launcher for Linux designed to bring your Steam, Heroic, and Windows games into one GTK-powered interface.
 
 ![GameHub Main Screen](main_photo.jpg)
 
@@ -9,9 +9,9 @@ GameHub is a unified game launcher for Linux designed to bring your Steam, Heroi
 - **Unified Library**: Automatically scans Steam and Heroic Launcher titles (Epic,GOG).
 - **ProtonDB Integration**: View compatibility ratings (Platinum, Gold, etc.) directly in your library.
 - **Steam Web API Support**: Discover and display your uninstalled Steam games.
-- **High-Quality Artwork**: Integration with **SteamGridDB** for premium, high-resolution covers.
+- **High-Quality Artwork**: Integration with **SteamGridDB** for high-resolution covers.
 - **Manual Game Addition**: Add any Windows executable with a custom configuration dialog.
-- **Advanced Runners**: Choose between Proton-GE and Native execution for manual games.
+- **Advanced Runners**: Choose between Proton-GE, Proton-CachyOS and Native execution for manual games.
 - **Launch Customization**: Specify custom launch arguments and set custom artwork.
 - **OnlineFix Support**: One-click configuration for online fixes (Steamworks Fix, etc.).
 - **Playtime Tracking**: Keeps track of your gaming sessions across all platforms.
