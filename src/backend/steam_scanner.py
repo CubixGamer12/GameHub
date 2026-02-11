@@ -78,7 +78,7 @@ class SteamScanner:
                         'artwork': f"https://cdn.akamai.steamstatic.com/steam/apps/{appid.group(1)}/library_600x900.jpg"
                     }
         except Exception as e:
-            print(f"Error parsing {path}: {e}")
+            pass
         return None
 
 if __name__ == "__main__":

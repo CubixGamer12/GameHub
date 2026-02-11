@@ -117,8 +117,12 @@ class GameHubApplication(Adw.Application):
         threading.Thread(target=fetch_tiers, daemon=True).start()
 
     def add_game(self, win, name, path, runner, version, use_global, args, art_dict, onlinefix_enabled):
+        steam_id = art_dict['value'] if art_dict['type'] == 'steam' else None
+        
         # Initial save to get an ID for artwork naming
-        game = self.config.save_game(name, path, runner_type=runner, proton_version=version, use_global_args=use_global, arguments=args, onlinefix_enabled=onlinefix_enabled)
+        game = self.config.save_game(name, path, runner_type=runner, proton_version=version, 
+                                     use_global_args=use_global, arguments=args, 
+                                     onlinefix_enabled=onlinefix_enabled, steam_id=steam_id)
         game_id = game['id']
         
         artwork_path = None
@@ -133,6 +137,8 @@ class GameHubApplication(Adw.Application):
         self.refresh_games(None)
 
     def update_manual_game(self, win, game_id, name, path, runner, version, use_global, args, art_dict, onlinefix_enabled):
+        steam_id = art_dict['value'] if art_dict['type'] == 'steam' else None
+        
         artwork_path = None
         if art_dict['type'] == 'file':
             artwork_path = self.art_manager.cache_local_image(art_dict['value'], game_id)
@@ -147,11 +153,12 @@ class GameHubApplication(Adw.Application):
                                 use_global_args=use_global,
                                 arguments=args, 
                                 artwork=artwork_path,
-                                onlinefix_enabled=onlinefix_enabled)
+                                onlinefix_enabled=onlinefix_enabled,
+                                steam_id=steam_id)
         self.refresh_games(None)
 
     def launch_game(self, win, game):
-        print(f"Launching {game['name']}...")
+
         if game['type'] == 'steam':
             self.runner.launch_steam_game(game['id'])
         else:
@@ -160,11 +167,11 @@ class GameHubApplication(Adw.Application):
     def on_playtime_updated(self, session_manager, game_type, game_id, seconds):
         """Handle playtime update from session manager"""
         self.config.add_playtime(game_id, seconds, game_type)
-        print(f"Playtime updated: +{seconds}s for {game_type} game {game_id}")
+
         self.refresh_games(None)
 
 if __name__ == "__main__":
-    print("Starting GameHub application...")
+
     app = GameHubApplication()
     exit_status = app.run(sys.argv)
     sys.exit(exit_status)

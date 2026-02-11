@@ -18,7 +18,7 @@ class ArtworkManager:
 
         # Check if wrestool is available
         if not shutil.which("wrestool"):
-            print("Warning: wrestool not found. Cannot extract icon from EXE.")
+            pass
             return None
 
         try:
@@ -46,7 +46,7 @@ class ArtworkManager:
                     os.remove(ico_path)
                 return target_path
         except Exception as e:
-            print(f"Error extracting icon: {e}")
+            pass
         
         return None
 
@@ -73,7 +73,7 @@ class ArtworkManager:
                     f.write(response.content)
                 return target_path
         except Exception as e:
-            print(f"Error downloading artwork: {e}")
+            pass
         return None
 
     def cache_local_image(self, source_path, game_id):
@@ -83,7 +83,7 @@ class ArtworkManager:
             shutil.copy(source_path, target_path)
             return target_path
         except Exception as e:
-            print(f"Error caching artwork: {e}")
+            pass
             return None
 
     def search_steam_appid(self, game_name):
@@ -102,15 +102,13 @@ class ArtworkManager:
                     should_refresh = False
             
             if should_refresh:
-                print("Downloading Steam app list (first time or cache expired)...")
+
                 response = requests.get("http://api.steampowered.com/ISteamApps/GetAppList/v2/")
                 if response.status_code == 200:
                     with open(cache_file, 'w') as f:
                         import json
                         json.dump(response.json(), f)
-                    print("Steam app list cached successfully")
                 else:
-                    print(f"Failed to download Steam app list: {response.status_code}")
                     return None
             
             # Search the cached list (only if file exists now)
@@ -137,6 +135,6 @@ class ArtworkManager:
                     return str(app['appid'])
                     
         except Exception as e:
-            print(f"Error searching Steam AppID for {game_name}: {e}")
+            pass
             
         return None

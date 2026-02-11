@@ -152,7 +152,7 @@ class GameCard(Gtk.FlowBoxChild):
             self.hover_overlay.set_opacity(0.8)
 
     def on_right_click(self, gesture, n_press, x, y):
-        print(f"Right click detected on {self.game['name']}")
+
         
         popover = Gtk.Popover()
         popover.set_parent(self) # Attach to self
@@ -238,7 +238,7 @@ class GameCard(Gtk.FlowBoxChild):
         self.hover_overlay.set_opacity(0.8)
 
     def on_play_clicked(self, btn):
-        print(f"Play button clicked for {self.game['name']}")
+
         if self.is_running:
             self.emit('play-clicked', self.game, True) # True = stop request
         else:

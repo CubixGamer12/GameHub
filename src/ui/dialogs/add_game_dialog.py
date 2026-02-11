@@ -145,6 +145,9 @@ class AddGameDialog(Adw.Window):
         steam_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         steam_box.set_margin_top(6)
         self.steam_id_entry = Gtk.Entry(placeholder_text="Enter Steam AppID (e.g. 10)")
+        if game and game.get('steam_id'):
+            self.steam_id_entry.set_text(str(game['steam_id']))
+            self.art_stack.set_visible_child_name("steam")
         steam_box.append(self.steam_id_entry)
         self.art_stack.add_titled(steam_box, "steam", "Steam ID")
         

@@ -44,7 +44,7 @@ class HeroicScanner:
                             'path': details.get('install_path')
                         })
             except Exception as e:
-                print(f"Error scanning Legendary games: {e}")
+                pass
         return games
 
     def _scan_gog(self):
@@ -74,7 +74,7 @@ class HeroicScanner:
                             'path': game.get('install_path')
                         })
             except Exception as e:
-                print(f"Error scanning GOG games: {e}")
+                pass
         return games
 
     def _find_artwork(self, app_id, platform, game_title):

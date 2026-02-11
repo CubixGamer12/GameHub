@@ -18,21 +18,51 @@ GameHub is a unified game launcher for Linux designed to bring your Steam, Heroi
 ## Prerequisites
 
 - Python 3.x
-- GTK4 & Libadwaita
-- Proton-GE (recommended for manual games)
-- `requests` (for artwork fetching)
-- `psutil` (for playtime tracking)
+- Supported Distributions: Arch Linux, Fedora, Ubuntu/Debian (or derivatives)
 
-## Getting Started
+## Installation
 
-1. Clone or download the repository.
-2. Run the modern graphical installer. It will handle system dependencies and register the application in your desktop menu:
+We provide an automated setup script that handles dependencies and installation for you.
+
+1. **Download the Repository**
+   Clone the repository to your local machine:
+   ```bash
+   git clone https://github.com/CubixGamer12/GameHub.git
+   cd GameHub
+   ```
+
+2. **Run the Setup Script**
+   Execute the setup script. It will detect your distribution, install necessary system dependencies (like GTK4 and Libadwaita), and launch the graphical installer.
+   ```bash
+   ./setup.sh
+   ```
+
+3. **Follow the Installer**
+   The graphical installer will guide you through the process. It will:
+   - Install the application to `~/.local/share/gamehub`.
+   - Create a dedicated virtual environment.
+   - Add a desktop entry and icon to your application menu.
+
+4. **Launch**
+   Once installed, you can launch **GameHub** from your application menu or run `gamehub` in your terminal.
+
+## Updating
+
+GameHub includes a built-in update mechanism. To update to the latest version:
+
+1. Open a terminal in the downloaded `GameHub` folder.
+2. Run `./setup.sh` again.
+3. If a new version is available on GitHub, the script will ask if you want to update.
+4. Press `y` to pull the latest changes and reinstall/update the application.
+
+## Manual Installation (Advanced)
+
+If you prefer to install manually or are on an unsupported distribution:
+
+1. Install `python-gobject`, `gtk4`, `libadwaita`, and `python-pip` using your package manager.
+2. Run the installer directly:
    ```bash
    python3 install.py
-   ```
-3. Once installed, you can launch GameHub from your application menu. Alternatively, you can run it directly:
-   ```bash
-   python3 src/main.py
    ```
 
 ## License

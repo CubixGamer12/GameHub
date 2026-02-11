@@ -18,7 +18,7 @@ class ProtonDBManager:
                 with open(self.CACHE_FILE, 'r') as f:
                     return json.load(f)
             except Exception as e:
-                print(f"Error loading ProtonDB cache: {e}")
+                pass
         return {}
 
     def _save_cache(self):
@@ -26,7 +26,7 @@ class ProtonDBManager:
             with open(self.CACHE_FILE, 'w') as f:
                 json.dump(self.cache, f)
         except Exception as e:
-            print(f"Error saving ProtonDB cache: {e}")
+            pass
 
     def get_tier(self, appid):
         """Fetches the tier for a given Steam appid. Returns tier string or None."""
@@ -61,6 +61,6 @@ class ProtonDBManager:
                 }
                 self._save_cache()
         except Exception as e:
-            print(f"Error fetching ProtonDB tier for {appid}: {e}")
+            pass
         
         return None

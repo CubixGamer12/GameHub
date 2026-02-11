@@ -154,7 +154,7 @@ class GameHubWindow(Adw.ApplicationWindow):
             self.steam_page.update_game_status(game['id'], False)
 
     def on_menu_action(self, page, game, action):
-        print(f"DEBUG: Menu action '{action}' triggered for game: {game['name']} (ID: {game['id']})")
+
         
         if action == "delete":
             self._confirm_delete(game)
@@ -167,7 +167,7 @@ class GameHubWindow(Adw.ApplicationWindow):
 
         elif action == "open_game_folder":
             path = game.get('path')
-            print(f"DEBUG: Opening game folder. Path in game object: {path}")
+
             if path:
                 if os.path.isdir(path):
                     folder = path
@@ -178,20 +178,20 @@ class GameHubWindow(Adw.ApplicationWindow):
                     self.overlay.add_toast(Adw.Toast.new(f"Opening {game['name']} folder..."))
                     self._open_folder(folder)
                 else:
-                    print(f"ERROR: Folder does not exist: {folder}")
+                    pass
                     self.overlay.add_toast(Adw.Toast.new(f"Error: Folder not found"))
             else:
-                print(f"ERROR: No path found for game {game['name']}")
+                pass
                 self.overlay.add_toast(Adw.Toast.new(f"No installation path found"))
 
         elif action == "open_prefix_folder":
             prefix_path = os.path.expanduser(f"~/.local/share/gamehub/prefixes/{game['id']}")
-            print(f"DEBUG: Opening prefix folder: {prefix_path}")
+
             if os.path.exists(prefix_path):
                 self.overlay.add_toast(Adw.Toast.new(f"Opening prefix folder..."))
                 self._open_folder(prefix_path)
             else:
-                print(f"ERROR: Prefix folder does not exist: {prefix_path}")
+                pass
                 self.overlay.add_toast(Adw.Toast.new(f"Prefix folder not created yet"))
 
         elif action == "run_without_proton":
@@ -201,13 +201,13 @@ class GameHubWindow(Adw.ApplicationWindow):
     def _open_folder(self, folder):
         """Robustly open a folder in the graphical file manager, avoiding terminals"""
         if not os.path.exists(folder):
-            print(f"CRITICAL: Folder does not exist: {folder}")
+
             return
 
         folder = os.path.abspath(folder)
         file_obj = Gio.File.new_for_path(folder)
         uri = file_obj.get_uri()
-        print(f"DEBUG: Attempting to open folder in GUI: {folder}")
+
 
         # Method 1: D-Bus (The most reliable way to trigger a graphical file manager)
         try:
@@ -218,10 +218,9 @@ class GameHubWindow(Adw.ApplicationWindow):
                 "org.freedesktop.FileManager1.ShowFolders",
                 f"array:string:{uri}", "string: "
             ])
-            print("SUCCESS: Triggered via D-Bus org.freedesktop.FileManager1")
             return
         except Exception as e:
-            print(f"INFO: D-Bus trigger failed: {e}")
+            pass
 
         # Method 2: DE-specific explicit calls (Bypass mime-type messiness)
         session = os.environ.get('DESKTOP_SESSION', '').lower()
@@ -230,12 +229,12 @@ class GameHubWindow(Adw.ApplicationWindow):
         if 'kde' in session or 'plasma' in xdg_current:
             if shutil.which("dolphin"):
                 subprocess.Popen(["dolphin", folder])
-                print("SUCCESS: Explicitly opened via dolphin")
+                # print("SUCCESS: Explicitly opened via dolphin")
                 return
         elif 'gnome' in session or 'gnome' in xdg_current:
             if shutil.which("nautilus"):
                 subprocess.Popen(["nautilus", folder])
-                print("SUCCESS: Explicitly opened via nautilus")
+                # print("SUCCESS: Explicitly opened via nautilus")
                 return
 
         # Method 3: Gtk.FileLauncher (Only as fallback now)
@@ -244,7 +243,7 @@ class GameHubWindow(Adw.ApplicationWindow):
             if hasattr(Gtk4, 'FileLauncher'):
                 launcher = Gtk4.FileLauncher.new(file_obj)
                 launcher.launch(self, None, None)
-                print(f"INFO: Attempted via Gtk.FileLauncher")
+                pass
                 return
         except Exception:
             pass
@@ -252,7 +251,7 @@ class GameHubWindow(Adw.ApplicationWindow):
         # Method 4: xdg-open
         try:
             subprocess.Popen(["xdg-open", folder])
-            print(f"INFO: Attempted via xdg-open")
+            pass
             return
         except Exception:
             pass
@@ -262,7 +261,6 @@ class GameHubWindow(Adw.ApplicationWindow):
             if shutil.which(fm):
                 try:
                     subprocess.Popen([fm, folder])
-                    print(f"SUCCESS: Opened via explicit fallback {fm}")
                     return
                 except Exception:
                     continue

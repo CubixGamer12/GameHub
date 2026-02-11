@@ -36,7 +36,7 @@ class ConfigManager:
         with open(self.config_file, 'w') as f:
             json.dump(self.data, f, indent=4)
 
-    def save_game(self, name, exe_path, runner_type='proton', proton_version=None, use_global_args=True, arguments=None, artwork=None, onlinefix_enabled=False):
+    def save_game(self, name, exe_path, runner_type='proton', proton_version=None, use_global_args=True, arguments=None, artwork=None, onlinefix_enabled=False, steam_id=None):
         game_id = str(int(time.time()))
         game = {
             'id': game_id,
@@ -49,6 +49,7 @@ class ConfigManager:
             'arguments': arguments,
             'artwork': artwork,
             'onlinefix_enabled': onlinefix_enabled,
+            'steam_id': steam_id,
             'playtime': 0  # Total seconds played
         }
         self.games.append(game)

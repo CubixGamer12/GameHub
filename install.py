@@ -4,6 +4,7 @@ import sys
 import subprocess
 import threading
 import shutil
+import json
 from pathlib import Path
 
 # Modern Installer for GameHub
@@ -21,26 +22,7 @@ except ImportError:
 
 APP_NAME = "GameHub"
 DESKTOP_FILENAME = "com.github.gamehub.desktop"
-ICON_NAME = "applications-games-symbolic"
-
-# Package Manager Mappings
-DISTRO_DEPS = {
-    "pacman": {
-        "name": "Arch Linux (pacman)",
-        "packages": ["python-gobject", "gtk4", "libadwaita", "python-pip", "python-psutil"],
-        "cmd": ["sudo", "pacman", "-Syu", "--needed", "--noconfirm"]
-    },
-    "apt": {
-        "name": "Ubuntu/Debian (apt)",
-        "packages": ["python3-gi", "libgtk-4-dev", "libadwaita-1-dev", "python3-pip", "python3-psutil"],
-        "cmd": ["sudo", "apt", "update", "&&", "sudo", "apt", "install", "-y"]
-    },
-    "dnf": {
-        "name": "Fedora (dnf)",
-        "packages": ["python3-gobject", "gtk4", "libadwaita", "python3-pip", "python3-psutil"],
-        "cmd": ["sudo", "dnf", "install", "-y"]
-    }
-}
+ICON_NAME = "com.github.gamehub"
 
 class GameHubInstaller(Adw.Application):
     def __init__(self):
@@ -49,14 +31,10 @@ class GameHubInstaller(Adw.Application):
             flags=Gio.ApplicationFlags.FLAGS_NONE
         )
         self.project_dir = Path(__file__).resolve().parent
-        self.main_py = self.project_dir / "src" / "main.py"
-        self.pkg_manager = self.detect_package_manager()
-
-    def detect_package_manager(self):
-        for pm in DISTRO_DEPS.keys():
-            if shutil.which(pm):
-                return pm
-        return None
+        self.src_dir = self.project_dir / "src"
+        self.install_dir = Path.home() / ".local/share/gamehub"
+        self.icon_dir = Path.home() / ".local/share/icons/hicolor/128x128/apps"
+        self.bin_dir = Path.home() / ".local/bin"
 
     def apply_custom_css(self):
         css = """
@@ -116,43 +94,38 @@ class GameHubInstaller(Adw.Application):
             css_classes=["suggested-action", "pill"]
         )
         start_btn.set_margin_top(24)
-        start_btn.connect("clicked", lambda x: self.stack.set_visible_child_name("deps"))
+        start_btn.connect("clicked", lambda x: self.stack.set_visible_child_name("install"))
         welcome_page.set_child(start_btn)
         self.stack.add_titled(welcome_page, "welcome", "Welcome")
 
-        # --- Dependencies Page ---
-        self.deps_page = Adw.StatusPage(
-            title="System Dependencies",
-            description="Required packages for GameHub to run correctly.",
+        # --- Install Page ---
+        self.install_page = Adw.StatusPage(
+            title="Installing GameHub",
+            description="Copying files and setting up environment...",
             icon_name="system-software-install-symbolic"
         )
-        pm_name = DISTRO_DEPS[self.pkg_manager]["name"] if self.pkg_manager else "Unknown Distro"
-        self.install_deps_btn = Gtk.Button(
-            label=f"Install Packages ({pm_name})", 
-            halign=Gtk.Align.CENTER, 
-            css_classes=["pill"]
-        )
-        self.install_deps_btn.set_sensitive(self.pkg_manager is not None)
-        self.install_deps_btn.set_margin_top(24)
-        self.install_deps_btn.connect("clicked", self.on_install_deps)
-        self.deps_page.set_child(self.install_deps_btn)
-        self.stack.add_titled(self.deps_page, "deps", "Dependencies")
-
-        # --- Setup Page ---
-        self.setup_page = Adw.StatusPage(
-            title="Finalizing Setup",
-            description="Configuring desktop shortcuts and permissions.",
-            icon_name="emblem-system-symbolic"
-        )
-        self.finish_btn = Gtk.Button(
-            label="Register Application", 
-            halign=Gtk.Align.CENTER, 
+        
+        # Progress Bar and Status Label
+        self.progress_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        self.progress_box.set_halign(Gtk.Align.CENTER)
+        
+        self.progress_bar = Gtk.ProgressBar()
+        self.progress_bar.set_size_request(300, -1)
+        self.progress_box.append(self.progress_bar)
+        
+        self.status_label = Gtk.Label(label="Ready to install")
+        self.progress_box.append(self.status_label)
+        
+        self.install_btn = Gtk.Button(
+            label="Install to ~/.local/share/gamehub",
+            halign=Gtk.Align.CENTER,
             css_classes=["suggested-action", "pill"]
         )
-        self.finish_btn.set_margin_top(24)
-        self.finish_btn.connect("clicked", self.on_finish_setup)
-        self.setup_page.set_child(self.finish_btn)
-        self.stack.add_titled(self.setup_page, "setup", "Setup")
+        self.install_btn.connect("clicked", self.on_start_install)
+        self.progress_box.append(self.install_btn)
+
+        self.install_page.set_child(self.progress_box)
+        self.stack.add_titled(self.install_page, "install", "Install")
 
         # --- Success Page ---
         self.success_page = Adw.StatusPage(
@@ -172,55 +145,106 @@ class GameHubInstaller(Adw.Application):
 
         self.win.present()
 
-    def on_install_deps(self, btn):
-        btn.set_sensitive(False)
-        self.deps_page.set_description("Installing... check terminal for sudo authentication.")
-        
-        def run_install():
-            try:
-                if not self.pkg_manager:
-                    GLib.idle_add(lambda: self.deps_page.set_description("Could not detect a supported package manager."))
-                    return
+    def update_status(self, text, fraction):
+        GLib.idle_add(self.status_label.set_text, text)
+        GLib.idle_add(self.progress_bar.set_fraction, fraction)
 
-                config = DISTRO_DEPS[self.pkg_manager]
-                full_cmd = config["cmd"] + config["packages"]
-                
-                # Special handling for apt (requires shell for &&)
-                if self.pkg_manager == "apt":
-                    subprocess.run(" ".join(full_cmd), shell=True, check=True)
-                else:
-                    subprocess.run(full_cmd, check=True)
-
-                GLib.idle_add(self.on_deps_success)
-            except Exception as e:
-                GLib.idle_add(lambda: self.deps_page.set_description(f"Installation failed: {e}"))
-                GLib.idle_add(lambda: btn.set_sensitive(True))
-
-        threading.Thread(target=run_install, daemon=True).start()
-
-    def on_deps_success(self):
-        self.deps_page.set_description("All dependencies are now installed.")
-        self.install_deps_btn.set_label("Continue")
-        self.install_deps_btn.set_sensitive(True)
-        self.install_deps_btn.disconnect_by_func(self.on_install_deps)
-        self.install_deps_btn.connect("clicked", lambda x: self.stack.set_visible_child_name("setup"))
-
-    def on_finish_setup(self, btn):
+    def get_git_version(self):
         try:
+            if (self.project_dir / ".git").exists():
+                commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=self.project_dir).decode().strip()
+                short_commit = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=self.project_dir).decode().strip()
+                return {"commit": commit, "short_commit": short_commit}
+        except Exception:
+            pass
+        return {"commit": "unknown", "short_commit": "unknown"}
+
+    def on_start_install(self, btn):
+        btn.set_sensitive(False)
+        self.install_page.set_description("Please wait while we set up GameHub.")
+        threading.Thread(target=self.run_install_process, daemon=True).start()
+
+    def run_install_process(self):
+        try:
+            # 1. Prepare Directory
+            self.update_status("Creating directories...", 0.1)
+            self.install_dir.mkdir(parents=True, exist_ok=True)
+            self.bin_dir.mkdir(parents=True, exist_ok=True)
+            self.icon_dir.mkdir(parents=True, exist_ok=True)
+
+            # 2. Copy Source Files
+            self.update_status("Copying application files...", 0.2)
+            dest_src = self.install_dir / "src"
+            if dest_src.exists():
+                shutil.rmtree(dest_src)
+            shutil.copytree(self.src_dir, dest_src)
+
+            
+            # 3. Setup Virtual Environment
+            self.update_status("Creating virtual environment...", 0.4)
+            venv_dir = self.install_dir / "venv"
+            subprocess.run([sys.executable, "-m", "venv", str(venv_dir)], check=True)
+
+            # 4. Install Requirements
+            self.update_status("Installing Python dependencies...", 0.6)
+            pip_exe = venv_dir / "bin" / "pip"
+            req_file = self.project_dir / "requirements.txt"
+            if req_file.exists():
+                subprocess.run([str(pip_exe), "install", "-r", str(req_file)], check=True)
+            else:
+                # Fallback installation
+                subprocess.run([str(pip_exe), "install", "requests", "psutil", "PyGObject"], check=True)
+
+            # 5. Install Icon
+            self.update_status("Installing icon...", 0.8)
+            icon_src = self.project_dir / "main.jpg"
+            if icon_src.exists():
+                # We rename it to .png for compatibility, even if it's a jpg (most DEs handle it)
+                # Or better, if we had a proper png.
+                shutil.copy(icon_src, self.icon_dir / "com.github.gamehub.png")
+
+            # 6. Write Version File
+            self.update_status("Saving version info...", 0.85)
+            version_info = self.get_git_version()
+            with open(self.install_dir / "version.json", "w") as f:
+                json.dump(version_info, f)
+
+            # 7. Create Launch Script
+            self.update_status("Creating launcher script...", 0.9)
+            launch_script = self.bin_dir / "gamehub"
+            python_exe = venv_dir / "bin" / "python3"
+            main_script = self.install_dir / "src" / "main.py"
+            
+            script_content = f"""#!/bin/bash
+export GDK_BACKEND=x11
+"{python_exe}" "{main_script}" "$@"
+"""
+            launch_script.write_text(script_content)
+            os.chmod(launch_script, 0o755)
+
+            # 7. Create Desktop Entry
             self.create_desktop_file()
-            self.stack.set_visible_child_name("success")
+
+            self.update_status("Installation Complete!", 1.0)
+            GLib.idle_add(lambda: self.stack.set_visible_child_name("success"))
+
         except Exception as e:
-            self.setup_page.set_description(f"Error creating file: {e}")
+            self.update_status(f"Error: {e}", 0.0)
+            GLib.idle_add(lambda: self.install_btn.set_sensitive(True))
+            print(f"Installation failed: {e}")
 
     def create_desktop_file(self):
         desktop_dir = Path.home() / ".local/share/applications"
         desktop_dir.mkdir(parents=True, exist_ok=True)
         desktop_path = desktop_dir / DESKTOP_FILENAME
         
+        # Exec points to the launcher script in ~/.local/bin/gamehub
+        exec_path = self.bin_dir / "gamehub"
+        
         content = f"""[Desktop Entry]
 Name={APP_NAME}
 Comment=Unified game library for Linux
-Exec=/usr/bin/env python3 "{self.main_py}"
+Exec="{exec_path}"
 Icon={ICON_NAME}
 Terminal=false
 Type=Application
@@ -231,7 +255,7 @@ StartupNotify=true
         os.chmod(desktop_path, 0o755)
 
     def on_launch(self, btn):
-        subprocess.Popen(["python3", str(self.main_py)])
+        subprocess.Popen([str(self.bin_dir / "gamehub")])
         self.quit()
 
 if __name__ == "__main__":

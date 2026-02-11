@@ -72,7 +72,7 @@ class ProtonRunner:
                 env["WINEDLLOVERRIDES"] = f"{env['WINEDLLOVERRIDES']};{overrides}"
             else:
                 env["WINEDLLOVERRIDES"] = overrides
-            print(f"OnlineFix enabled. Applying DLL overrides: {overrides}")
+
         
         cmd = [proton_path, "run", game_path]
         if args:
@@ -81,7 +81,7 @@ class ProtonRunner:
             import shlex
             cmd.extend(shlex.split(args))
         
-        print(f"Launching with Proton: {' '.join(cmd)}")
+
         # start_new_session=True ensures the process group is killed together
         return subprocess.Popen(cmd, env=env, start_new_session=True)
 
@@ -92,7 +92,7 @@ class ProtonRunner:
             import shlex
             cmd.extend(shlex.split(args))
             
-        print(f"Launching natively: {' '.join(cmd)}")
+
         return subprocess.Popen(cmd, start_new_session=True)
 
     def launch_steam_game(self, appid):

@@ -25,7 +25,7 @@ class SessionManager(GObject.Object):
 
     def launch_game(self, game):
         if game['id'] in self.running_games:
-            print(f"Game {game['name']} is already running.")
+            pass
             return
 
         try:
@@ -59,17 +59,17 @@ class SessionManager(GObject.Object):
                 # Start looking for the process
                 self._start_tracking_latent_game(game)
             elif game['type'] == 'heroic':
-                print(f"Launching Heroic game: {game['name']}")
+
                 subprocess.Popen(["xdg-open", game['command']])
                 # Start looking for the process
                 self._start_tracking_latent_game(game)
         except Exception as e:
-            print(f"Failed to launch game: {e}")
+            pass
 
     def launch_game_native(self, game):
         """Launch a manual game without Proton prefix"""
         if game['id'] in self.running_games:
-            print(f"Game {game['name']} is already running.")
+            pass
             return
 
         try:
@@ -80,12 +80,12 @@ class SessionManager(GObject.Object):
                 self.running_games[game['id']] = (game, process, start_time)
                 self.emit('game-started', game)
         except Exception as e:
-            print(f"Failed to launch native game: {e}")
+            pass
 
     def stop_game(self, game_id):
         if game_id in self.running_games:
             game, process, _ = self.running_games[game_id]
-            print(f"Stopping game {game['name']} ({game_id})...")
+
             try:
                 if hasattr(process, 'terminate'): # psutil.Process
                     # Kill children first
@@ -100,7 +100,7 @@ class SessionManager(GObject.Object):
                     # Kill the entire process group
                     os.killpg(os.getpgid(process.pid), signal.SIGTERM)
             except Exception as e:
-                print(f"Error stopping game: {e}")
+                pass
 
     def is_running(self, game_id):
         return game_id in self.running_games
@@ -148,13 +148,13 @@ class SessionManager(GObject.Object):
         for game, wait_start in self.latent_games:
             process = self._find_game_process(game)
             if process:
-                print(f"Discovered process for {game['name']}")
+
                 # We don't know exactly when it started, but now is a good guess
                 self.running_games[game['id']] = (game, process, self.time.time())
             elif self.time.time() - wait_start < 30: # Wait up to 30s
                 remaining.append((game, wait_start))
             else:
-                print(f"Gave up looking for process for {game['name']}")
+
                 self.emit('game-stopped', game)
         
         self.latent_games = remaining
@@ -183,5 +183,5 @@ class SessionManager(GObject.Object):
                 except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                     continue
         except Exception as e:
-            print(f"Error searching for process: {e}")
+            pass
         return None
