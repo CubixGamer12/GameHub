@@ -108,6 +108,12 @@ class GameHubApplication(Adw.Application):
                     futures = [executor.submit(resolve_game_data, g, sgdb_key) for g in all_games]
                     concurrent.futures.wait(futures)
 
+                # Sync Steam playtime if API was used
+                if api_key:
+                    steam_playtime_map = {g['id']: g['playtime'] for g in steam_games if 'playtime' in g}
+                    if steam_playtime_map:
+                        self.config.sync_steam_playtime(steam_playtime_map)
+
                 # Update UI from main thread
                 gi.repository.GLib.idle_add(self.win.update_game_list, steam_games, manual_games, heroic_games)
                 

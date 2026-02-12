@@ -141,7 +141,8 @@ class SteamScanner:
                             'name': item.get('name', f"App {item.get('appid')}"),
                             'type': 'steam',
                             'installed': False,
-                            'artwork': f"https://cdn.akamai.steamstatic.com/steam/apps/{item.get('appid')}/library_600x900.jpg"
+                            'artwork': f"https://cdn.akamai.steamstatic.com/steam/apps/{item.get('appid')}/library_600x900.jpg",
+                            'playtime': item.get('playtime_forever', 0) * 60  # Minutes to seconds
                         })
                 else:
                     print(f"[SteamScanner] API response format unexpected or empty: {data}")

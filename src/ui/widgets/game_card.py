@@ -335,9 +335,15 @@ class GameCard(Gtk.Box):
 
     def _update_playtime_label(self, seconds):
         """Format and update playtime label"""
-        hours = seconds / 3600
-        if hours >= 1:
-            self.playtime_label.set_text(f"{hours:.1f} hours played")
+        if seconds >= 3600:
+            hours = seconds // 3600
+            minutes = (seconds % 3600) // 60
+            if minutes > 0:
+                self.playtime_label.set_text(f"{hours}h {minutes}min played")
+            else:
+                self.playtime_label.set_text(f"{hours}h played")
+        elif seconds >= 60:
+            minutes = seconds // 60
+            self.playtime_label.set_text(f"{minutes}min played")
         else:
-            minutes = seconds / 60
-            self.playtime_label.set_text(f"{int(minutes)} minutes played")
+            self.playtime_label.set_text(f"{seconds}s played")

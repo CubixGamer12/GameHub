@@ -94,7 +94,7 @@ class GameHubInstaller(Adw.Application):
             css_classes=["suggested-action", "pill"]
         )
         start_btn.set_margin_top(24)
-        start_btn.connect("clicked", lambda x: self.stack.set_visible_child_name("install"))
+        start_btn.connect("clicked", lambda x: self.stack.set_visible_child_name("steam_api"))
         
         uninstall_btn = Gtk.Button(
             label="Uninstall",
@@ -109,6 +109,70 @@ class GameHubInstaller(Adw.Application):
         box.append(uninstall_btn)
         welcome_page.set_child(box)
         self.stack.add_titled(welcome_page, "welcome", "Welcome")
+
+        # --- Steam API Page ---
+        self.steam_api_page = Adw.StatusPage(
+            title="Steam Integration",
+            description="Sync your uninstalled games by providing a Steam Web API Key.",
+            icon_name="network-workgroup-symbolic"
+        )
+        
+        steam_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        steam_box.set_halign(Gtk.Align.CENTER)
+        
+        steam_link = Gtk.LinkButton(label="Get your Steam API Key here", uri="https://steamcommunity.com/dev/apikey")
+        steam_box.append(steam_link)
+        
+        self.steam_entry = Gtk.Entry(placeholder_text="Enter Steam Web API Key")
+        self.steam_entry.set_size_request(350, -1)
+        steam_box.append(self.steam_entry)
+        
+        steam_btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        steam_btn_box.set_halign(Gtk.Align.CENTER)
+        
+        next_steam_btn = Gtk.Button(label="Next", css_classes=["suggested-action", "pill"])
+        next_steam_btn.connect("clicked", lambda x: self.stack.set_visible_child_name("sgdb_api"))
+        steam_btn_box.append(next_steam_btn)
+        
+        skip_steam_btn = Gtk.Button(label="Skip", css_classes=["pill"])
+        skip_steam_btn.connect("clicked", lambda x: self.stack.set_visible_child_name("sgdb_api"))
+        steam_btn_box.append(skip_steam_btn)
+        
+        steam_box.append(steam_btn_box)
+        self.steam_api_page.set_child(steam_box)
+        self.stack.add_titled(self.steam_api_page, "steam_api", "Steam API")
+
+        # --- SteamGridDB API Page ---
+        self.sgdb_api_page = Adw.StatusPage(
+            title="Automatic Artwork",
+            description="Download high-quality covers automatically using SteamGridDB.",
+            icon_name="image-x-generic-symbolic"
+        )
+        
+        sgdb_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        sgdb_box.set_halign(Gtk.Align.CENTER)
+        
+        sgdb_link = Gtk.LinkButton(label="Get your SteamGridDB API Key here", uri="https://www.steamgriddb.com/profile/api")
+        sgdb_box.append(sgdb_link)
+        
+        self.sgdb_entry = Gtk.Entry(placeholder_text="Enter SteamGridDB API Key")
+        self.sgdb_entry.set_size_request(350, -1)
+        sgdb_box.append(self.sgdb_entry)
+        
+        sgdb_btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        sgdb_btn_box.set_halign(Gtk.Align.CENTER)
+        
+        next_sgdb_btn = Gtk.Button(label="Finish Setup", css_classes=["suggested-action", "pill"])
+        next_sgdb_btn.connect("clicked", lambda x: self.stack.set_visible_child_name("install"))
+        sgdb_btn_box.append(next_sgdb_btn)
+        
+        skip_sgdb_btn = Gtk.Button(label="Skip", css_classes=["pill"])
+        skip_sgdb_btn.connect("clicked", lambda x: self.stack.set_visible_child_name("install"))
+        sgdb_btn_box.append(skip_sgdb_btn)
+        
+        sgdb_box.append(sgdb_btn_box)
+        self.sgdb_api_page.set_child(sgdb_box)
+        self.stack.add_titled(self.sgdb_api_page, "sgdb_api", "SteamGridDB API")
 
         # --- Install Page ---
         self.install_page = Adw.StatusPage(
@@ -277,6 +341,10 @@ export GDK_BACKEND=x11
             except Exception:
                 pass
 
+            # 9. Save API Keys
+            self.update_status("Saving API configurations...", 0.98)
+            self.save_api_configs()
+
             self.update_status("Installation Complete!", 1.0)
             GLib.idle_add(lambda: self.stack.set_visible_child_name("success"))
 
@@ -309,6 +377,45 @@ StartupWMClass=com.github.gamehub
 """
         desktop_path.write_text(content)
         os.chmod(desktop_path, 0o755)
+
+    def save_api_configs(self):
+        steam_key = self.steam_entry.get_text().strip()
+        sgdb_key = self.sgdb_entry.get_text().strip()
+        
+        if not steam_key and not sgdb_key:
+            return
+
+        # Add src to path to import SettingsManager
+        sys.path.append(str(self.src_dir))
+        try:
+            from backend.settings_manager import SettingsManager
+            settings = SettingsManager()
+            
+            if steam_key:
+                settings.set("steam_api_key", steam_key)
+                settings.set("enable_steam_api", "True")
+            if sgdb_key:
+                settings.set("sgdb_api_key", sgdb_key)
+        except Exception as e:
+            print(f"Failed to use SettingsManager: {e}")
+            # Fallback to manual save if SettingsManager fails (e.g. during dev/partial installs)
+            import configparser
+            config_dir = Path.home() / ".config/gamehub"
+            config_dir.mkdir(parents=True, exist_ok=True)
+            settings_file = config_dir / "configuration.conf"
+            
+            config = configparser.ConfigParser(interpolation=None)
+            if settings_file.exists():
+                config.read(settings_file)
+            if "Settings" not in config:
+                config["Settings"] = {}
+            if steam_key:
+                config["Settings"]["steam_api_key"] = steam_key
+                config["Settings"]["enable_steam_api"] = "True"
+            if sgdb_key:
+                config["Settings"]["sgdb_api_key"] = sgdb_key
+            with open(settings_file, "w") as f:
+                config.write(f)
 
     def on_launch(self, btn):
         subprocess.Popen([str(self.bin_dir / "gamehub")])

@@ -137,6 +137,13 @@ class SessionManager(GObject.Object):
         """Start polling for a process that appeared after launch-via-URI"""
         if not hasattr(self, 'latent_games'):
             self.latent_games = [] # list of (game, start_wait_time)
+        
+        # Deduplicate: Don't track if already running or already in latent pool
+        if game['id'] in self.running_games:
+            return
+        if any(g['id'] == game['id'] for g, _ in self.latent_games):
+            return
+
         self.latent_games.append((game, self.time.time()))
         self.emit('game-started', game)
 
@@ -146,9 +153,12 @@ class SessionManager(GObject.Object):
 
         remaining = []
         for game, wait_start in self.latent_games:
+            # Another final check to avoid redundant runs
+            if game['id'] in self.running_games:
+                continue
+
             process = self._find_game_process(game)
             if process:
-
                 # We don't know exactly when it started, but now is a good guess
                 self.running_games[game['id']] = (game, process, self.time.time())
             elif self.time.time() - wait_start < 30: # Wait up to 30s
@@ -162,8 +172,19 @@ class SessionManager(GObject.Object):
     def _find_game_process(self, game):
         """Try to find a running process for a given game appid or command"""
         try:
+            # Get already tracked PIDs to avoid double counting
+            tracked_pids = set()
+            for g, proc, _ in self.running_games.values():
+                try:
+                    tracked_pids.add(proc.pid)
+                except:
+                    pass
+
             for proc in psutil.process_iter(['environ', 'cmdline', 'pid']):
                 try:
+                    if proc.info['pid'] in tracked_pids:
+                        continue
+
                     env = proc.info.get('environ') or {}
                     if game['type'] == 'steam':
                         # Steam games usually have SteamAppId in env

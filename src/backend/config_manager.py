@@ -192,3 +192,20 @@ class ConfigManager:
             self.heroic_playtime[game_id] = current + seconds
             with open(self.heroic_playtime_file, 'w') as f:
                 json.dump(self.heroic_playtime, f, indent=4)
+                
+    def sync_steam_playtime(self, playtime_dict):
+        """
+        Synchronize local playtime cache with external Steam data.
+        playtime_dict: {appid_str: seconds_int}
+        """
+        updated = False
+        for appid, api_seconds in playtime_dict.items():
+            current = self.steam_playtime.get(appid, 0)
+            # We take the maximum to avoid losing progress if one source is behind
+            if api_seconds > current:
+                self.steam_playtime[appid] = api_seconds
+                updated = True
+        
+        if updated:
+            with open(self.steam_playtime_file, 'w') as f:
+                json.dump(self.steam_playtime, f, indent=4)
